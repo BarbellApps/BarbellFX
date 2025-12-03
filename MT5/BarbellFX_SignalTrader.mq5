@@ -114,6 +114,182 @@ int OnInit() {
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason) {
    Print("BarbellFX Signal Trader EA Stopped");
+   // Clean up panel objects
+   ObjectsDeleteAll(0, "BBFX_");
+}
+
+//+------------------------------------------------------------------+
+//| Draw visual panel on chart                                        |
+//+------------------------------------------------------------------+
+void DrawPanel() {
+   int x = 20;
+   int y = 50;
+   int panelWidth = 300;
+   int lineHeight = 18;
+   
+   // Background
+   ObjectDelete(0, "BBFX_BG");
+   ObjectCreate(0, "BBFX_BG", OBJ_RECTANGLE_LABEL, 0, 0, 0);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_XDISTANCE, x - 10);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_YDISTANCE, y - 10);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_XSIZE, panelWidth);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_YSIZE, currentSignal.valid ? 280 : 120);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_BGCOLOR, clrBlack);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_BORDER_TYPE, BORDER_FLAT);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_COLOR, clrGold);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_WIDTH, 2);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_CORNER, CORNER_LEFT_UPPER);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_BACK, false);
+   
+   // Header
+   DrawLabel("BBFX_Header", x, y, "◆ BARBELLFX SIGNAL", clrGold, 11, true);
+   y += lineHeight + 5;
+   
+   DrawLabel("BBFX_Divider", x, y, "━━━━━━━━━━━━━━━━━━━━━━━━", clrGold, 8, false);
+   y += lineHeight;
+   
+   if(!currentSignal.valid) {
+      DrawLabel("BBFX_NoSignal", x, y, "⬜ No Active Signal", clrGray, 10, false);
+      y += lineHeight;
+      DrawLabel("BBFX_Waiting", x, y, "Waiting for GPT signal...", clrDimGray, 9, false);
+      // Hide other objects
+      ObjectDelete(0, "BBFX_Pair");
+      ObjectDelete(0, "BBFX_Dir");
+      ObjectDelete(0, "BBFX_Entry");
+      ObjectDelete(0, "BBFX_SL");
+      ObjectDelete(0, "BBFX_TP");
+      ObjectDelete(0, "BBFX_Conf");
+      ObjectDelete(0, "BBFX_Status");
+      ObjectDelete(0, "BBFX_EntryZone");
+      ObjectDelete(0, "BBFX_SLLine");
+      ObjectDelete(0, "BBFX_TP1Line");
+      ObjectDelete(0, "BBFX_TPFullLine");
+      ChartRedraw();
+      return;
+   }
+   
+   // Signal Details
+   bool isBuy = (currentSignal.direction == "BUY");
+   color dirColor = isBuy ? clrLime : clrRed;
+   
+   DrawLabel("BBFX_Pair", x, y, currentSignal.pair, clrWhite, 12, true);
+   y += lineHeight;
+   
+   DrawLabel("BBFX_Dir", x, y, currentSignal.direction, dirColor, 16, true);
+   y += lineHeight + 10;
+   
+   DrawLabel("BBFX_EntryLbl", x, y, "Entry Zone:", clrGray, 9, false);
+   y += lineHeight;
+   DrawLabel("BBFX_Entry", x, y, DoubleToString(currentSignal.entry_min, _Digits) + " - " + DoubleToString(currentSignal.entry_max, _Digits), clrGold, 10, true);
+   y += lineHeight + 5;
+   
+   DrawLabel("BBFX_SLLbl", x, y, "Stop Loss:", clrGray, 9, false);
+   DrawLabel("BBFX_SL", x + 100, y, DoubleToString(currentSignal.stop_loss, _Digits), clrRed, 10, true);
+   y += lineHeight;
+   
+   DrawLabel("BBFX_TP1Lbl", x, y, "TP1 (50%):", clrGray, 9, false);
+   DrawLabel("BBFX_TP1", x + 100, y, DoubleToString(currentSignal.tp1, _Digits), clrLime, 10, false);
+   y += lineHeight;
+   
+   DrawLabel("BBFX_TPFullLbl", x, y, "Full TP:", clrGray, 9, false);
+   DrawLabel("BBFX_TPFull", x + 100, y, DoubleToString(currentSignal.tp_full, _Digits), clrLime, 10, true);
+   y += lineHeight + 5;
+   
+   // Confidence & R:R
+   double conf = currentSignal.confidence < 1 ? currentSignal.confidence * 100 : currentSignal.confidence;
+   DrawLabel("BBFX_ConfLbl", x, y, "Confidence:", clrGray, 9, false);
+   DrawLabel("BBFX_Conf", x + 100, y, DoubleToString(conf, 0) + "%", clrGold, 10, true);
+   y += lineHeight;
+   
+   double entryMid = (currentSignal.entry_min + currentSignal.entry_max) / 2;
+   double risk = MathAbs(entryMid - currentSignal.stop_loss);
+   double reward = MathAbs(currentSignal.tp_full - entryMid);
+   double rr = risk > 0 ? reward / risk : 0;
+   DrawLabel("BBFX_RRLbl", x, y, "Risk:Reward:", clrGray, 9, false);
+   DrawLabel("BBFX_RR", x + 100, y, "1:" + DoubleToString(rr, 1), clrLime, 10, true);
+   y += lineHeight + 10;
+   
+   // Status
+   bool symbolMatch = SymbolMatches(currentSignal.pair, Symbol());
+   double currentPrice = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+   bool priceInZone = (currentPrice >= currentSignal.entry_min && currentPrice <= currentSignal.entry_max);
+   
+   string statusText;
+   color statusColor;
+   if(!symbolMatch) {
+      statusText = "✗ Wrong Symbol (Need " + currentSignal.pair + ")";
+      statusColor = clrRed;
+   } else if(priceInZone) {
+      statusText = "✓ READY - Price in Entry Zone!";
+      statusColor = clrLime;
+   } else {
+      statusText = "⏳ Waiting for price in zone";
+      statusColor = clrGold;
+   }
+   
+   DrawLabel("BBFX_Status", x, y, statusText, statusColor, 9, true);
+   
+   // Draw levels on chart if symbol matches
+   if(symbolMatch) {
+      DrawLevels();
+   }
+   
+   ChartRedraw();
+}
+
+//+------------------------------------------------------------------+
+//| Draw label helper                                                  |
+//+------------------------------------------------------------------+
+void DrawLabel(string name, int x, int y, string text, color clr, int fontSize, bool bold) {
+   ObjectDelete(0, name);
+   ObjectCreate(0, name, OBJ_LABEL, 0, 0, 0);
+   ObjectSetInteger(0, name, OBJPROP_XDISTANCE, x);
+   ObjectSetInteger(0, name, OBJPROP_YDISTANCE, y);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
+   ObjectSetString(0, name, OBJPROP_TEXT, text);
+   ObjectSetString(0, name, OBJPROP_FONT, bold ? "Arial Bold" : "Arial");
+   ObjectSetInteger(0, name, OBJPROP_FONTSIZE, fontSize);
+   ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+}
+
+//+------------------------------------------------------------------+
+//| Draw entry zone and SL/TP levels on chart                         |
+//+------------------------------------------------------------------+
+void DrawLevels() {
+   datetime timeStart = iTime(Symbol(), PERIOD_CURRENT, 50);
+   datetime timeEnd = iTime(Symbol(), PERIOD_CURRENT, 0) + PeriodSeconds() * 20;
+   
+   bool isBuy = (currentSignal.direction == "BUY");
+   color zoneColor = isBuy ? clrLime : clrRed;
+   
+   // Entry Zone
+   ObjectDelete(0, "BBFX_EntryZone");
+   ObjectCreate(0, "BBFX_EntryZone", OBJ_RECTANGLE, 0, timeStart, currentSignal.entry_min, timeEnd, currentSignal.entry_max);
+   ObjectSetInteger(0, "BBFX_EntryZone", OBJPROP_COLOR, zoneColor);
+   ObjectSetInteger(0, "BBFX_EntryZone", OBJPROP_FILL, true);
+   ObjectSetInteger(0, "BBFX_EntryZone", OBJPROP_BACK, true);
+   
+   // SL Line
+   ObjectDelete(0, "BBFX_SLLine");
+   ObjectCreate(0, "BBFX_SLLine", OBJ_HLINE, 0, 0, currentSignal.stop_loss);
+   ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_COLOR, clrRed);
+   ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_WIDTH, 2);
+   ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_STYLE, STYLE_SOLID);
+   
+   // TP1 Line
+   ObjectDelete(0, "BBFX_TP1Line");
+   ObjectCreate(0, "BBFX_TP1Line", OBJ_HLINE, 0, 0, currentSignal.tp1);
+   ObjectSetInteger(0, "BBFX_TP1Line", OBJPROP_COLOR, clrLime);
+   ObjectSetInteger(0, "BBFX_TP1Line", OBJPROP_WIDTH, 1);
+   ObjectSetInteger(0, "BBFX_TP1Line", OBJPROP_STYLE, STYLE_DASH);
+   
+   // Full TP Line
+   ObjectDelete(0, "BBFX_TPFullLine");
+   ObjectCreate(0, "BBFX_TPFullLine", OBJ_HLINE, 0, 0, currentSignal.tp_full);
+   ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_COLOR, clrLime);
+   ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_WIDTH, 2);
+   ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_STYLE, STYLE_SOLID);
 }
 
 //+------------------------------------------------------------------+
@@ -127,6 +303,9 @@ void OnTick() {
       FetchSignal();
       lastFetchTime = TimeCurrent();
    }
+   
+   // Update visual panel
+   DrawPanel();
    
    // Process current signal
    if(currentSignal.valid) {
