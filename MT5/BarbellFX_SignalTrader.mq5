@@ -684,11 +684,48 @@ double CalculateLotSize(string symbol, double stopLoss, bool isBuy) {
       return 0;
    }
    
+   // Get symbol properties
    double tickValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);
    double tickSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
-   double pointValue = tickValue / tickSize;
+   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+   int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
    
-   double lotSize = riskAmount / (slDistance * pointValue);
+   // Calculate pip value (for 3/5 digit pairs, pip = point * 10)
+   double pipSize = (digits == 3 || digits == 5) ? point * 10 : point;
+   
+   // Calculate pip value per lot (money per pip per lot)
+   // For Gold: 1 lot = $10 per pip
+   // For Forex: depends on the pair and account currency
+   double pipValuePerLot = 0;
+   
+   // Check if it's Gold
+   string symbolUpper = symbol;
+   StringToUpper(symbolUpper);
+   bool isGold = StringFind(symbolUpper, "XAU") >= 0 || StringFind(symbolUpper, "GOLD") >= 0;
+   
+   if(isGold) {
+      // Gold: 1 lot = $10 per pip (standard)
+      pipValuePerLot = 10.0;
+   } else {
+      // For forex pairs, calculate based on tick value
+      // pipValuePerLot = tickValue * (pipSize / tickSize)
+      if(tickSize > 0) {
+         pipValuePerLot = tickValue * (pipSize / tickSize);
+      } else {
+         pipValuePerLot = 0;
+      }
+   }
+   
+   if(pipValuePerLot <= 0) {
+      Print("Invalid pip value per lot for symbol: ", symbol);
+      return 0;
+   }
+   
+   // Calculate pips in SL distance
+   double slPips = slDistance / pipSize;
+   
+   // Calculate lot size: Risk Amount / (SL Pips * Pip Value Per Lot)
+   double lotSize = riskAmount / (slPips * pipValuePerLot);
    
    // Apply limits
    double minLot = SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN);
