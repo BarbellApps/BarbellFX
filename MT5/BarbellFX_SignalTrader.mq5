@@ -681,10 +681,8 @@ void PlaceTrade(string symbol, bool isBuy, double lots, double sl, double tp) {
       // For limit orders, adjust price slightly to account for slippage
       if(isBuy) {
          price = NormalizeDouble(price - (LimitOrderSlippage * point), digits);
-         orderType = ORDER_TYPE_BUY_LIMIT;
       } else {
          price = NormalizeDouble(price + (LimitOrderSlippage * point), digits);
-         orderType = ORDER_TYPE_SELL_LIMIT;
       }
    } else {
       // Use market order at current price
@@ -692,7 +690,6 @@ void PlaceTrade(string symbol, bool isBuy, double lots, double sl, double tp) {
          SymbolInfoDouble(symbol, SYMBOL_ASK) : 
          SymbolInfoDouble(symbol, SYMBOL_BID);
       price = NormalizeDouble(price, digits);
-      orderType = isBuy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
    }
    
    sl = NormalizeDouble(sl, digits);
@@ -705,7 +702,7 @@ void PlaceTrade(string symbol, bool isBuy, double lots, double sl, double tp) {
    
    if(UseLimitOrders) {
       // Place limit order
-      datetime expiration = TimeCurrent() + PeriodSeconds(PERIOD_D1); // Expire in 1 day
+      datetime expiration = TimeCurrent() + (datetime)PeriodSeconds(PERIOD_D1); // Expire in 1 day
       if(isBuy) {
          success = trade.BuyLimit(lots, price, symbol, sl, tp, ORDER_TIME_SPECIFIED, expiration, comment);
       } else {
