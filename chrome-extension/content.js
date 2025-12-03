@@ -373,10 +373,28 @@ function showSignalPanel(signal) {
         background: rgba(255,215,0,0.1);
         border-top: 1px solid rgba(255,215,0,0.2);
         padding: 12px 16px;
-        text-align: center;
       ">
-        <div style="color: #FFD700; font-size: 11px; font-weight: 500;">
-          📋 Double-click indicator → Enter these values in LIVE SIGNAL inputs
+        <button id="barbellfx-copy" style="
+          width: 100%;
+          padding: 10px;
+          background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%);
+          border: none;
+          border-radius: 8px;
+          color: #000;
+          font-weight: 700;
+          font-size: 12px;
+          cursor: pointer;
+          margin-bottom: 8px;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+          📋 Copy Signal Details
+        </button>
+        <div style="color: #FFD700; font-size: 10px; text-align: center; opacity: 0.8;">
+          Double-click indicator → Enter values in LIVE SIGNAL inputs
         </div>
       </div>
     </div>
@@ -387,6 +405,11 @@ function showSignalPanel(signal) {
   // Close button
   document.getElementById('barbellfx-close').addEventListener('click', () => {
     panel.remove();
+  });
+  
+  // Copy button
+  document.getElementById('barbellfx-copy').addEventListener('click', async () => {
+    await copySignalDetails(signal);
   });
   
   // Make panel draggable
@@ -431,6 +454,104 @@ function makeDraggable(element) {
 // Legacy notification function (kept for compatibility)
 function showNotification(signal) {
   showSignalPanel(signal);
+}
+
+// Copy signal details to clipboard
+async function copySignalDetails(signal) {
+  try {
+    // Format signal details
+    const signalText = formatSignalForCopy(signal);
+    
+    // Copy to clipboard
+    await navigator.clipboard.writeText(signalText);
+    
+    // Show success feedback
+    const copyBtn = document.getElementById('barbellfx-copy');
+    const originalText = copyBtn.innerHTML;
+    copyBtn.innerHTML = '✓ Copied!';
+    copyBtn.style.background = 'linear-gradient(90deg, #00ff88 0%, #00cc66 100%)';
+    
+    // Reset button after 2 seconds
+    setTimeout(() => {
+      copyBtn.innerHTML = originalText;
+      copyBtn.style.background = 'linear-gradient(90deg, #FFD700 0%, #FFA500 100%)';
+    }, 2000);
+    
+    console.log('Signal details copied to clipboard');
+    
+  } catch (error) {
+    console.error('Copy error:', error);
+    
+    // Fallback: try using execCommand
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = formatSignalForCopy(signal);
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      
+      const copyBtn = document.getElementById('barbellfx-copy');
+      const originalText = copyBtn.innerHTML;
+      copyBtn.innerHTML = '✓ Copied!';
+      copyBtn.style.background = 'linear-gradient(90deg, #00ff88 0%, #00cc66 100%)';
+      
+      setTimeout(() => {
+        copyBtn.innerHTML = originalText;
+        copyBtn.style.background = 'linear-gradient(90deg, #FFD700 0%, #FFA500 100%)';
+      }, 2000);
+      
+    } catch (fallbackError) {
+      console.error('Fallback copy failed:', fallbackError);
+      alert('Failed to copy. Please try again.');
+    }
+  }
+}
+
+// Format signal as text for copying
+function formatSignalForCopy(signal) {
+  let text = '═══════════════════════════════════════\n';
+  text += '🔶 BARBELLFX TRADING SIGNAL\n';
+  text += '═══════════════════════════════════════\n\n';
+  
+  text += `📊 Pair: ${signal.pair}\n`;
+  text += `📈 Direction: ${signal.direction}\n\n`;
+  
+  text += `💰 Entry Zone:\n`;
+  text += `   Min: ${signal.entry_min}\n`;
+  text += `   Max: ${signal.entry_max}\n\n`;
+  
+  text += `🛑 Stop Loss: ${signal.stop_loss}\n\n`;
+  
+  text += `🎯 Take Profit Levels:\n`;
+  text += `   TP1 (50%): ${signal.tp1}\n`;
+  text += `   TP2 (30%): ${signal.tp2}\n`;
+  text += `   Full TP (20%): ${signal.tp_full}\n\n`;
+  
+  const conf = typeof signal.confidence === 'number' ? signal.confidence.toFixed(0) : signal.confidence;
+  text += `📊 Confidence: ${conf}%\n\n`;
+  
+  if (signal.setup) {
+    text += `📝 Setup:\n${signal.setup}\n\n`;
+  }
+  
+  if (signal.timestamp) {
+    try {
+      const date = new Date(signal.timestamp);
+      text += `🕐 Timestamp: ${date.toLocaleString()}\n`;
+    } catch (e) {
+      text += `🕐 Timestamp: ${signal.timestamp}\n`;
+    }
+  }
+  
+  text += '\n═══════════════════════════════════════\n';
+  text += 'Generated by BarbellFX Signal Injector\n';
+  text += '═══════════════════════════════════════';
+  
+  return text;
 }
 
 // Utility: wait
