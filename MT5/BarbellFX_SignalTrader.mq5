@@ -61,6 +61,22 @@ input int      LineSpacing = 20;              // Line spacing
 input bool     ShowLotSize = true;            // Show calculated lot size
 input bool     ShowMoneyInfo = true;          // Show TP/SL in money on chart
 input bool     ShowPipsInfo = true;           // Show TP/SL in pips on chart
+input int      ChartLabelFontSize = 9;        // Chart label font size (TP/SL info)
+input int      LabelOffsetPips = 10;          // Label offset above line (pips)
+
+// Chart Lines Settings
+input group "=== Chart Lines Settings ==="
+input color    EntryZoneColor = clrGold;      // Entry zone color
+input bool     ShowEntryZone = true;          // Show entry zone rectangle
+input color    SLLineColor = clrRed;          // Stop Loss line color
+input int      SLLineWidth = 2;               // Stop Loss line width
+input ENUM_LINE_STYLE SLLineStyle = STYLE_SOLID;  // Stop Loss line style
+input color    TP1LineColor = clrLime;       // TP1 line color
+input int      TP1LineWidth = 1;              // TP1 line width
+input ENUM_LINE_STYLE TP1LineStyle = STYLE_DASH;  // TP1 line style
+input color    TPFullLineColor = clrLime;     // Full TP line color
+input int      TPFullLineWidth = 2;           // Full TP line width
+input ENUM_LINE_STYLE TPFullLineStyle = STYLE_SOLID;  // Full TP line style
 
 // Order Type
 input group "=== Order Settings ==="
@@ -299,7 +315,6 @@ void DrawLevels() {
    datetime timeEnd = iTime(Symbol(), PERIOD_CURRENT, 0) + PeriodSeconds() * 20;
    
    bool isBuy = (currentSignal.direction == "BUY");
-   color zoneColor = isBuy ? clrLime : clrRed;
    double entryMid = (currentSignal.entry_min + currentSignal.entry_max) / 2;
    
    // Calculate lot size for money display
@@ -311,20 +326,24 @@ void DrawLevels() {
    double pipValue = (digits == 3 || digits == 5) ? point * 10 : point;
    
    // Entry Zone
-   ObjectDelete(0, "BBFX_EntryZone");
-   ObjectCreate(0, "BBFX_EntryZone", OBJ_RECTANGLE, 0, timeStart, currentSignal.entry_min, timeEnd, currentSignal.entry_max);
-   ObjectSetInteger(0, "BBFX_EntryZone", OBJPROP_COLOR, zoneColor);
-   ObjectSetInteger(0, "BBFX_EntryZone", OBJPROP_FILL, true);
-   ObjectSetInteger(0, "BBFX_EntryZone", OBJPROP_BACK, true);
+   if(ShowEntryZone) {
+      ObjectDelete(0, "BBFX_EntryZone");
+      ObjectCreate(0, "BBFX_EntryZone", OBJ_RECTANGLE, 0, timeStart, currentSignal.entry_min, timeEnd, currentSignal.entry_max);
+      ObjectSetInteger(0, "BBFX_EntryZone", OBJPROP_COLOR, EntryZoneColor);
+      ObjectSetInteger(0, "BBFX_EntryZone", OBJPROP_FILL, true);
+      ObjectSetInteger(0, "BBFX_EntryZone", OBJPROP_BACK, true);
+   } else {
+      ObjectDelete(0, "BBFX_EntryZone");
+   }
    
    // SL Line with info
    ObjectDelete(0, "BBFX_SLLine");
    ObjectCreate(0, "BBFX_SLLine", OBJ_HLINE, 0, 0, currentSignal.stop_loss);
-   ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_COLOR, clrRed);
-   ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_WIDTH, 2);
-   ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_STYLE, STYLE_SOLID);
+   ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_COLOR, SLLineColor);
+   ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_WIDTH, SLLineWidth);
+   ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_STYLE, SLLineStyle);
    
-   // SL Label with pips and money
+   // SL Label with pips and money (positioned ABOVE the line)
    if(ShowPipsInfo || ShowMoneyInfo) {
       double slDistance = MathAbs(entryMid - currentSignal.stop_loss);
       double slPips = slDistance / pipValue;
@@ -336,22 +355,26 @@ void DrawLevels() {
          slText += " | $" + DoubleToString(MathAbs(slMoney), 2);
       }
       
+      // Position label ABOVE the line (add offset in price)
+      double labelOffset = LabelOffsetPips * pipValue;
+      double slLabelPrice = currentSignal.stop_loss + labelOffset;
+      
       ObjectDelete(0, "BBFX_SLLabel");
-      ObjectCreate(0, "BBFX_SLLabel", OBJ_TEXT, 0, timeEnd, currentSignal.stop_loss);
+      ObjectCreate(0, "BBFX_SLLabel", OBJ_TEXT, 0, timeEnd, slLabelPrice);
       ObjectSetString(0, "BBFX_SLLabel", OBJPROP_TEXT, slText);
-      ObjectSetInteger(0, "BBFX_SLLabel", OBJPROP_COLOR, clrRed);
-      ObjectSetInteger(0, "BBFX_SLLabel", OBJPROP_FONTSIZE, FontSizeNormal);
+      ObjectSetInteger(0, "BBFX_SLLabel", OBJPROP_COLOR, SLLineColor);
+      ObjectSetInteger(0, "BBFX_SLLabel", OBJPROP_FONTSIZE, ChartLabelFontSize);
       ObjectSetInteger(0, "BBFX_SLLabel", OBJPROP_ANCHOR, ANCHOR_LEFT);
    }
    
    // TP1 Line
    ObjectDelete(0, "BBFX_TP1Line");
    ObjectCreate(0, "BBFX_TP1Line", OBJ_HLINE, 0, 0, currentSignal.tp1);
-   ObjectSetInteger(0, "BBFX_TP1Line", OBJPROP_COLOR, clrLime);
-   ObjectSetInteger(0, "BBFX_TP1Line", OBJPROP_WIDTH, 1);
-   ObjectSetInteger(0, "BBFX_TP1Line", OBJPROP_STYLE, STYLE_DASH);
+   ObjectSetInteger(0, "BBFX_TP1Line", OBJPROP_COLOR, TP1LineColor);
+   ObjectSetInteger(0, "BBFX_TP1Line", OBJPROP_WIDTH, TP1LineWidth);
+   ObjectSetInteger(0, "BBFX_TP1Line", OBJPROP_STYLE, TP1LineStyle);
    
-   // TP1 Label
+   // TP1 Label (positioned ABOVE the line)
    if(ShowPipsInfo || ShowMoneyInfo) {
       double tp1Distance = MathAbs(currentSignal.tp1 - entryMid);
       double tp1Pips = tp1Distance / pipValue;
@@ -363,22 +386,26 @@ void DrawLevels() {
          tp1Text += " | $" + DoubleToString(tp1Money, 2);
       }
       
+      // Position label ABOVE the line (add offset in price)
+      double labelOffset = LabelOffsetPips * pipValue;
+      double tp1LabelPrice = currentSignal.tp1 + labelOffset;
+      
       ObjectDelete(0, "BBFX_TP1Label");
-      ObjectCreate(0, "BBFX_TP1Label", OBJ_TEXT, 0, timeEnd, currentSignal.tp1);
+      ObjectCreate(0, "BBFX_TP1Label", OBJ_TEXT, 0, timeEnd, tp1LabelPrice);
       ObjectSetString(0, "BBFX_TP1Label", OBJPROP_TEXT, tp1Text);
-      ObjectSetInteger(0, "BBFX_TP1Label", OBJPROP_COLOR, clrLime);
-      ObjectSetInteger(0, "BBFX_TP1Label", OBJPROP_FONTSIZE, FontSizeNormal);
+      ObjectSetInteger(0, "BBFX_TP1Label", OBJPROP_COLOR, TP1LineColor);
+      ObjectSetInteger(0, "BBFX_TP1Label", OBJPROP_FONTSIZE, ChartLabelFontSize);
       ObjectSetInteger(0, "BBFX_TP1Label", OBJPROP_ANCHOR, ANCHOR_LEFT);
    }
    
    // Full TP Line with info
    ObjectDelete(0, "BBFX_TPFullLine");
    ObjectCreate(0, "BBFX_TPFullLine", OBJ_HLINE, 0, 0, currentSignal.tp_full);
-   ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_COLOR, clrLime);
-   ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_WIDTH, 2);
-   ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_STYLE, STYLE_SOLID);
+   ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_COLOR, TPFullLineColor);
+   ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_WIDTH, TPFullLineWidth);
+   ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_STYLE, TPFullLineStyle);
    
-   // Full TP Label
+   // Full TP Label (positioned ABOVE the line)
    if(ShowPipsInfo || ShowMoneyInfo) {
       double tpFullDistance = MathAbs(currentSignal.tp_full - entryMid);
       double tpFullPips = tpFullDistance / pipValue;
@@ -390,11 +417,15 @@ void DrawLevels() {
          tpFullText += " | $" + DoubleToString(tpFullMoney, 2);
       }
       
+      // Position label ABOVE the line (add offset in price)
+      double labelOffset = LabelOffsetPips * pipValue;
+      double tpFullLabelPrice = currentSignal.tp_full + labelOffset;
+      
       ObjectDelete(0, "BBFX_TPFullLabel");
-      ObjectCreate(0, "BBFX_TPFullLabel", OBJ_TEXT, 0, timeEnd, currentSignal.tp_full);
+      ObjectCreate(0, "BBFX_TPFullLabel", OBJ_TEXT, 0, timeEnd, tpFullLabelPrice);
       ObjectSetString(0, "BBFX_TPFullLabel", OBJPROP_TEXT, tpFullText);
-      ObjectSetInteger(0, "BBFX_TPFullLabel", OBJPROP_COLOR, clrLime);
-      ObjectSetInteger(0, "BBFX_TPFullLabel", OBJPROP_FONTSIZE, FontSizeNormal);
+      ObjectSetInteger(0, "BBFX_TPFullLabel", OBJPROP_COLOR, TPFullLineColor);
+      ObjectSetInteger(0, "BBFX_TPFullLabel", OBJPROP_FONTSIZE, ChartLabelFontSize);
       ObjectSetInteger(0, "BBFX_TPFullLabel", OBJPROP_ANCHOR, ANCHOR_LEFT);
    }
 }
