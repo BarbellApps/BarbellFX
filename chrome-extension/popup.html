@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>BarbellFX Signal Injector</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 380px;
+      min-height: 400px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: #fff;
+      padding: 16px;
+    }
+    
+    .header {
+      text-align: center;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #FFD700;
+      margin-bottom: 16px;
+    }
+    
+    .header h1 {
+      font-size: 18px;
+      color: #FFD700;
+      margin-bottom: 4px;
+    }
+    
+    .header .subtitle {
+      font-size: 11px;
+      color: #888;
+    }
+    
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 215, 0, 0.1);
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ff4444;
+    }
+    
+    .status-dot.connected {
+      background: #44ff44;
+      box-shadow: 0 0 8px #44ff44;
+    }
+    
+    .status-text {
+      font-size: 12px;
+    }
+    
+    .config-section {
+      margin-bottom: 16px;
+    }
+    
+    .config-section label {
+      display: block;
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    
+    .config-section input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #1a1a2e;
+      color: #fff;
+      font-size: 12px;
+    }
+    
+    .config-section input:focus {
+      outline: none;
+      border-color: #FFD700;
+    }
+    
+    .interval-select {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    
+    .interval-btn {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #1a1a2e;
+      color: #888;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+    
+    .interval-btn:hover {
+      border-color: #FFD700;
+      color: #FFD700;
+    }
+    
+    .interval-btn.active {
+      background: #FFD700;
+      color: #000;
+      border-color: #FFD700;
+    }
+    
+    .signal-preview {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .signal-preview h3 {
+      font-size: 12px;
+      color: #FFD700;
+      margin-bottom: 10px;
+    }
+    
+    .signal-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 11px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .signal-row:last-child {
+      border-bottom: none;
+    }
+    
+    .signal-label {
+      color: #888;
+    }
+    
+    .signal-value {
+      color: #fff;
+      font-weight: 500;
+    }
+    
+    .signal-value.buy {
+      color: #44ff44;
+    }
+    
+    .signal-value.sell {
+      color: #ff4444;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #FFD700;
+      color: #000;
+    }
+    
+    .btn-primary:hover {
+      background: #ffed4a;
+      transform: translateY(-1px);
+    }
+    
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .log-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #333;
+    }
+    
+    .log-section h3 {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    
+    .log-entries {
+      max-height: 100px;
+      overflow-y: auto;
+      font-size: 10px;
+      color: #666;
+    }
+    
+    .log-entry {
+      padding: 2px 0;
+    }
+    
+    .log-entry.error {
+      color: #ff4444;
+    }
+    
+    .log-entry.success {
+      color: #44ff44;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔶 BarbellFX Signal Injector</h1>
+    <div class="subtitle">Auto-inject GPT signals into TradingView</div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-indicator">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="status-text" id="statusText">Disconnected</span>
+    </div>
+    <span id="lastUpdate" style="font-size: 10px; color: #666;">--</span>
+  </div>
+
+  <div class="config-section">
+    <label>API Endpoint</label>
+    <input type="text" id="apiUrl" placeholder="https://web-production-0617.up.railway.app/signal">
+  </div>
+
+  <div class="config-section">
+    <label>Refresh Interval</label>
+    <div class="interval-select">
+      <button class="interval-btn" data-interval="10">10s</button>
+      <button class="interval-btn" data-interval="30">30s</button>
+      <button class="interval-btn active" data-interval="60">1m</button>
+      <button class="interval-btn" data-interval="300">5m</button>
+    </div>
+  </div>
+
+  <div class="signal-preview">
+    <h3>Latest Signal</h3>
+    <div class="signal-row">
+      <span class="signal-label">Pair</span>
+      <span class="signal-value" id="sigPair">--</span>
+    </div>
+    <div class="signal-row">
+      <span class="signal-label">Direction</span>
+      <span class="signal-value" id="sigDir">--</span>
+    </div>
+    <div class="signal-row">
+      <span class="signal-label">Entry</span>
+      <span class="signal-value" id="sigEntry">--</span>
+    </div>
+    <div class="signal-row">
+      <span class="signal-label">Stop Loss</span>
+      <span class="signal-value" id="sigSL">--</span>
+    </div>
+    <div class="signal-row">
+      <span class="signal-label">Take Profit</span>
+      <span class="signal-value" id="sigTP">--</span>
+    </div>
+    <div class="signal-row">
+      <span class="signal-label">Confidence</span>
+      <span class="signal-value" id="sigConf">--</span>
+    </div>
+    <div class="signal-row">
+      <span class="signal-label">Setup</span>
+      <span class="signal-value" id="sigSetup">--</span>
+    </div>
+    <div class="signal-row">
+      <span class="signal-label">Timestamp</span>
+      <span class="signal-value" id="sigTime">--</span>
+    </div>
+  </div>
+
+  <div class="btn-group">
+    <button class="btn btn-secondary" id="fetchBtn">Fetch Now</button>
+    <button class="btn btn-primary" id="injectBtn">Inject Signal</button>
+  </div>
+
+  <div id="helpText" style="margin-top: 12px; padding: 12px; background: rgba(255,100,100,0.2); border: 1px solid #ff6666; border-radius: 6px; display: none;">
+    <div style="font-size: 12px; color: #ff8888; margin-bottom: 10px;">
+      <strong>⚠️ Connection Required</strong>
+    </div>
+    <div style="font-size: 11px; color: #ccc; line-height: 1.6;">
+      The extension needs to connect to TradingView:<br><br>
+      <strong>Step 1:</strong> Click the button below to refresh TradingView<br>
+      <strong>Step 2:</strong> Wait for page to load completely<br>
+      <strong>Step 3:</strong> Open this popup again and click Inject
+    </div>
+    <button class="btn btn-primary" id="refreshPageBtn" style="margin-top: 12px; width: 100%; padding: 10px; font-size: 12px;">
+      🔄 Refresh TradingView Now
+    </button>
+  </div>
+
+  <div class="log-section">
+    <h3>Activity Log</h3>
+    <div class="log-entries" id="logEntries"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+

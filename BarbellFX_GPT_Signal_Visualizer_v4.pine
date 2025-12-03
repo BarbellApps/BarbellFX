@@ -1,0 +1,144 @@
+//@version=5
+
+indicator("BarbellFX GPT Signal Visualizer v4", overlay=true, max_lines_count=500, max_boxes_count=100, max_labels_count=100)
+
+//────────────────────────────────────
+// USER INPUTS (Update these with GPT/API values)
+//────────────────────────────────────
+pair              = input.string("XAUUSD", "Pair")
+direction         = input.string("SELL", "Direction (BUY or SELL)", options=["BUY", "SELL"])
+entry_min         = input.float(3120.5, "Entry Min")
+entry_max         = input.float(3122.0, "Entry Max")
+stop_loss         = input.float(3128.0, "Stop Loss")
+tp1               = input.float(3115.5, "TP1")
+tp2               = input.float(3112.0, "TP2")
+tp_full           = input.float(3108.0, "Full TP")
+
+confidence_val    = input.float(0.82, "Confidence (0-1)", minval=0, maxval=1)
+setup_text        = input.string("NY ORB + Liquidity Sweep", "Setup Description")
+signal_time_str   = input.string("2025-12-03T13:03:00Z", "Signal Timestamp")
+
+//────────────────────────────────────
+// DISPLAY OPTIONS
+//────────────────────────────────────
+showLines         = input.bool(true, "Show TP/SL Lines")
+showLabels        = input.bool(true, "Show Labels")
+showArrows        = input.bool(true, "Show Arrows")
+showPanel         = input.bool(true, "Show Info Panel")
+showBiasBG        = input.bool(true, "Show Background Bias")
+showPairWarning   = input.bool(true, "Show Pair Mismatch Warning")
+
+//────────────────────────────────────
+// LAYOUT OPTIONS
+//────────────────────────────────────
+lookback          = input.int(200, "Lookback Bars", minval=10, maxval=500)
+extend_right      = input.int(5, "Extend Right Bars", minval=0, maxval=50)
+panel_offset      = input.int(150, "Panel Offset", minval=10, maxval=300)
+
+//────────────────────────────────────
+// COLORS
+//────────────────────────────────────
+isBuy       = (direction == "BUY")
+zoneColor   = isBuy ? color.new(color.green, 80) : color.new(color.red, 80)
+slColor     = color.new(color.red, 0)
+tpColor     = color.new(color.green, 0)
+arrowColor  = isBuy ? color.green : color.red
+biasBGColor = isBuy ? color.new(color.green, 92) : color.new(color.red, 92)
+warningColor = color.new(color.orange, 20)
+
+//────────────────────────────────────
+// RISK/REWARD CALCULATION
+//────────────────────────────────────
+entry_mid = (entry_min + entry_max) / 2
+risk = math.abs(entry_mid - stop_loss)
+reward_tp1 = math.abs(tp1 - entry_mid)
+reward_tp2 = math.abs(tp2 - entry_mid)
+reward_full = math.abs(tp_full - entry_mid)
+rr_tp1 = risk > 0 ? reward_tp1 / risk : 0
+rr_tp2 = risk > 0 ? reward_tp2 / risk : 0
+rr_full = risk > 0 ? reward_full / risk : 0
+
+//────────────────────────────────────
+// BIAS BACKGROUND COLOR
+//────────────────────────────────────
+bgcolor(showBiasBG ? biasBGColor : na)
+
+//────────────────────────────────────
+// PERSISTENT OBJECT VARIABLES (prevents memory leak)
+//────────────────────────────────────
+var box zoneBox = na
+var line slLine = na
+var line tp1Line = na
+var line tp2Line = na
+var line tpFullLine = na
+var line entryMidLine = na
+var label slLabel = na
+var label tp1Label = na
+var label tp2Label = na
+var label tpFullLabel = na
+var label arrowLabel = na
+var label panelLabel = na
+var label warningLabel = na
+
+//────────────────────────────────────
+// ENTRY ZONE BOX
+//────────────────────────────────────
+if barstate.islast
+    box.delete(zoneBox)
+    zoneBox := box.new(bar_index - lookback, entry_max, bar_index + extend_right, entry_min, bgcolor=zoneColor, border_color=zoneColor, border_width=1)
+
+//────────────────────────────────────
+// SL & TP LINES (with distinct styles)
+//────────────────────────────────────
+if showLines and barstate.islast
+    line.delete(slLine)
+    line.delete(tp1Line)
+    line.delete(tp2Line)
+    line.delete(tpFullLine)
+    line.delete(entryMidLine)
+    slLine := line.new(bar_index - lookback, stop_loss, bar_index + extend_right, stop_loss, color=slColor, style=line.style_solid, width=2)
+    tp1Line := line.new(bar_index - lookback, tp1, bar_index + extend_right, tp1, color=tpColor, style=line.style_dashed, width=1)
+    tp2Line := line.new(bar_index - lookback, tp2, bar_index + extend_right, tp2, color=tpColor, style=line.style_dashed, width=1)
+    tpFullLine := line.new(bar_index - lookback, tp_full, bar_index + extend_right, tp_full, color=tpColor, style=line.style_solid, width=2)
+    entryMidLine := line.new(bar_index - lookback, entry_mid, bar_index + extend_right, entry_mid, color=color.new(color.white, 50), style=line.style_dotted, width=1)
+
+//────────────────────────────────────
+// LABELS FOR SL / TP (with R:R ratios)
+//────────────────────────────────────
+if showLabels and barstate.islast
+    label.delete(slLabel)
+    label.delete(tp1Label)
+    label.delete(tp2Label)
+    label.delete(tpFullLabel)
+    slLabel := label.new(bar_index + extend_right, stop_loss, "SL", style=label.style_label_left, color=slColor, textcolor=color.white, size=size.small)
+    tp1Label := label.new(bar_index + extend_right, tp1, "TP1 (1:" + str.tostring(rr_tp1, "#.##") + ")", style=label.style_label_left, color=tpColor, textcolor=color.white, size=size.small)
+    tp2Label := label.new(bar_index + extend_right, tp2, "TP2 (1:" + str.tostring(rr_tp2, "#.##") + ")", style=label.style_label_left, color=tpColor, textcolor=color.white, size=size.small)
+    tpFullLabel := label.new(bar_index + extend_right, tp_full, "TP FULL (1:" + str.tostring(rr_full, "#.##") + ")", style=label.style_label_left, color=tpColor, textcolor=color.white, size=size.small)
+
+//────────────────────────────────────
+// BUY / SELL ARROWS
+//────────────────────────────────────
+if showArrows and barstate.islast
+    label.delete(arrowLabel)
+    if isBuy
+        arrowLabel := label.new(bar_index, entry_min, "BUY", style=label.style_label_up, color=arrowColor, textcolor=color.white, size=size.normal)
+    else
+        arrowLabel := label.new(bar_index, entry_max, "SELL", style=label.style_label_down, color=arrowColor, textcolor=color.white, size=size.normal)
+
+//────────────────────────────────────
+// PAIR MISMATCH WARNING
+//────────────────────────────────────
+if showPairWarning and barstate.islast
+    label.delete(warningLabel)
+    currentSymbol = str.upper(syminfo.ticker)
+    expectedPair = str.upper(pair)
+    if not str.contains(currentSymbol, expectedPair) and not str.contains(expectedPair, currentSymbol)
+        warningLabel := label.new(bar_index, high * 1.001, "Warning: Chart Mismatch! Expected: " + pair + " Current: " + syminfo.ticker, style=label.style_label_down, color=warningColor, textcolor=color.black, size=size.normal)
+
+//────────────────────────────────────
+// INFO PANEL (Signal Summary with R:R)
+//────────────────────────────────────
+if showPanel and barstate.islast
+    label.delete(panelLabel)
+    info_str = "=== BarbellFX GPT Signal ===\nPair: " + pair + "\nDirection: " + direction + "\nEntry: " + str.tostring(entry_min, "#.##") + " - " + str.tostring(entry_max, "#.##") + "\nSL: " + str.tostring(stop_loss, "#.##") + "\n---\nTP1: " + str.tostring(tp1, "#.##") + " (1:" + str.tostring(rr_tp1, "#.##") + ")\nTP2: " + str.tostring(tp2, "#.##") + " (1:" + str.tostring(rr_tp2, "#.##") + ")\nFull TP: " + str.tostring(tp_full, "#.##") + " (1:" + str.tostring(rr_full, "#.##") + ")\n---\nSetup: " + setup_text + "\nConfidence: " + str.tostring(confidence_val * 100, "#.#") + "%\nTime: " + signal_time_str
+    panelLabel := label.new(bar_index - panel_offset, high, info_str, style=label.style_label_right, color=color.new(color.blue, 80), textcolor=color.white, size=size.small)

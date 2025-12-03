@@ -1,0 +1,22 @@
+/* BarbellFX Signal Injector - Content Styles */
+
+#barbellfx-notification {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+#barbellfx-notification:hover {
+  transform: scale(1.02);
+  transition: transform 0.2s ease;
+}
+

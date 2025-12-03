@@ -1,0 +1,352 @@
+//@version=5
+indicator("BarbellFX Multi-Signal Dashboard", overlay=true)
+
+//────────────────────────────────────
+// SIGNAL 1
+//────────────────────────────────────
+s1_active = input.bool(true, "Active", group="Signal 1")
+s1_pair = input.string("XAUUSD", "Pair", group="Signal 1")
+s1_dir = input.string("SELL", "Direction", options=["BUY", "SELL"], group="Signal 1")
+s1_entry_min = input.float(3120.5, "Entry Min", group="Signal 1")
+s1_entry_max = input.float(3122.0, "Entry Max", group="Signal 1")
+s1_sl = input.float(3128.0, "Stop Loss", group="Signal 1")
+s1_tp1 = input.float(3115.5, "TP1", group="Signal 1")
+s1_tp2 = input.float(3112.0, "TP2", group="Signal 1")
+s1_tp_full = input.float(3108.0, "Full TP", group="Signal 1")
+s1_conf = input.float(82, "Confidence %", group="Signal 1")
+s1_setup = input.string("NY ORB + Liquidity Sweep", "Setup", group="Signal 1")
+
+//────────────────────────────────────
+// SIGNAL 2
+//────────────────────────────────────
+s2_active = input.bool(false, "Active", group="Signal 2")
+s2_pair = input.string("EURUSD", "Pair", group="Signal 2")
+s2_dir = input.string("BUY", "Direction", options=["BUY", "SELL"], group="Signal 2")
+s2_entry_min = input.float(1.0850, "Entry Min", group="Signal 2")
+s2_entry_max = input.float(1.0860, "Entry Max", group="Signal 2")
+s2_sl = input.float(1.0820, "Stop Loss", group="Signal 2")
+s2_tp1 = input.float(1.0890, "TP1", group="Signal 2")
+s2_tp2 = input.float(1.0910, "TP2", group="Signal 2")
+s2_tp_full = input.float(1.0940, "Full TP", group="Signal 2")
+s2_conf = input.float(75, "Confidence %", group="Signal 2")
+s2_setup = input.string("London Breakout", "Setup", group="Signal 2")
+
+//────────────────────────────────────
+// SIGNAL 3
+//────────────────────────────────────
+s3_active = input.bool(false, "Active", group="Signal 3")
+s3_pair = input.string("GBPUSD", "Pair", group="Signal 3")
+s3_dir = input.string("SELL", "Direction", options=["BUY", "SELL"], group="Signal 3")
+s3_entry_min = input.float(1.2720, "Entry Min", group="Signal 3")
+s3_entry_max = input.float(1.2735, "Entry Max", group="Signal 3")
+s3_sl = input.float(1.2760, "Stop Loss", group="Signal 3")
+s3_tp1 = input.float(1.2690, "TP1", group="Signal 3")
+s3_tp2 = input.float(1.2660, "TP2", group="Signal 3")
+s3_tp_full = input.float(1.2620, "Full TP", group="Signal 3")
+s3_conf = input.float(68, "Confidence %", group="Signal 3")
+s3_setup = input.string("FVG Fill", "Setup", group="Signal 3")
+
+//────────────────────────────────────
+// SIGNAL 4
+//────────────────────────────────────
+s4_active = input.bool(false, "Active", group="Signal 4")
+s4_pair = input.string("USDJPY", "Pair", group="Signal 4")
+s4_dir = input.string("BUY", "Direction", options=["BUY", "SELL"], group="Signal 4")
+s4_entry_min = input.float(149.50, "Entry Min", group="Signal 4")
+s4_entry_max = input.float(149.70, "Entry Max", group="Signal 4")
+s4_sl = input.float(149.00, "Stop Loss", group="Signal 4")
+s4_tp1 = input.float(150.20, "TP1", group="Signal 4")
+s4_tp2 = input.float(150.80, "TP2", group="Signal 4")
+s4_tp_full = input.float(151.50, "Full TP", group="Signal 4")
+s4_conf = input.float(70, "Confidence %", group="Signal 4")
+s4_setup = input.string("Order Block", "Setup", group="Signal 4")
+
+//────────────────────────────────────
+// SIGNAL 5
+//────────────────────────────────────
+s5_active = input.bool(false, "Active", group="Signal 5")
+s5_pair = input.string("BTCUSD", "Pair", group="Signal 5")
+s5_dir = input.string("BUY", "Direction", options=["BUY", "SELL"], group="Signal 5")
+s5_entry_min = input.float(97000, "Entry Min", group="Signal 5")
+s5_entry_max = input.float(97500, "Entry Max", group="Signal 5")
+s5_sl = input.float(95500, "Stop Loss", group="Signal 5")
+s5_tp1 = input.float(99000, "TP1", group="Signal 5")
+s5_tp2 = input.float(101000, "TP2", group="Signal 5")
+s5_tp_full = input.float(105000, "Full TP", group="Signal 5")
+s5_conf = input.float(65, "Confidence %", group="Signal 5")
+s5_setup = input.string("HTF Demand Zone", "Setup", group="Signal 5")
+
+//────────────────────────────────────
+// DISPLAY OPTIONS
+//────────────────────────────────────
+tablePos = input.string("Top Right", "Table Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left", "Top Center", "Bottom Center"], group="Display")
+showOnlyActive = input.bool(true, "Show Only Active Signals", group="Display")
+showVisualsOnMatch = input.bool(true, "Show Levels When On Matching Pair", group="Display")
+lookback = input.int(200, "Lookback Bars (for visuals)", group="Display")
+extend_right = input.int(10, "Extend Right Bars", group="Display")
+
+//────────────────────────────────────
+// HELPER FUNCTIONS
+//────────────────────────────────────
+getTablePosition(pos) =>
+    switch pos
+        "Top Right" => position.top_right
+        "Top Left" => position.top_left
+        "Bottom Right" => position.bottom_right
+        "Bottom Left" => position.bottom_left
+        "Top Center" => position.top_center
+        "Bottom Center" => position.bottom_center
+
+calcRR(entry_mid, sl, tp) =>
+    risk = math.abs(entry_mid - sl)
+    reward = math.abs(tp - entry_mid)
+    risk > 0 ? reward / risk : 0.0
+
+isPairMatch(inputPair) =>
+    currentSymbol = str.upper(syminfo.ticker)
+    expectedPair = str.upper(inputPair)
+    str.contains(currentSymbol, expectedPair) or str.contains(expectedPair, currentSymbol)
+
+//────────────────────────────────────
+// COLORS
+//────────────────────────────────────
+buyColor = color.new(color.green, 0)
+sellColor = color.new(color.red, 0)
+headerBg = color.new(#1a1a2e, 0)
+rowBg1 = color.new(#16213e, 20)
+rowBg2 = color.new(#0f3460, 20)
+viewingColor = color.new(color.lime, 0)
+switchColor = color.new(color.orange, 0)
+slColorVis = color.new(color.red, 0)
+tpColorVis = color.new(color.green, 0)
+zoneColorBuy = color.new(color.green, 80)
+zoneColorSell = color.new(color.red, 80)
+
+//────────────────────────────────────
+// CREATE DASHBOARD TABLE
+//────────────────────────────────────
+var table dashboard = table.new(getTablePosition(tablePos), 8, 7, bgcolor=color.new(color.black, 85), border_width=1, border_color=color.new(color.white, 70), frame_width=2, frame_color=color.new(color.blue, 50))
+
+if barstate.islast
+    // Header row
+    table.cell(dashboard, 0, 0, "PAIR", text_color=color.white, bgcolor=headerBg, text_size=size.small)
+    table.cell(dashboard, 1, 0, "DIR", text_color=color.white, bgcolor=headerBg, text_size=size.small)
+    table.cell(dashboard, 2, 0, "ENTRY", text_color=color.white, bgcolor=headerBg, text_size=size.small)
+    table.cell(dashboard, 3, 0, "SL", text_color=color.white, bgcolor=headerBg, text_size=size.small)
+    table.cell(dashboard, 4, 0, "TP1", text_color=color.white, bgcolor=headerBg, text_size=size.small)
+    table.cell(dashboard, 5, 0, "FULL TP", text_color=color.white, bgcolor=headerBg, text_size=size.small)
+    table.cell(dashboard, 6, 0, "R:R", text_color=color.white, bgcolor=headerBg, text_size=size.small)
+    table.cell(dashboard, 7, 0, "STATUS", text_color=color.white, bgcolor=headerBg, text_size=size.small)
+    
+    rowNum = 1
+    
+    // Signal 1
+    if s1_active and (not showOnlyActive or s1_active)
+        s1_mid = (s1_entry_min + s1_entry_max) / 2
+        s1_rr = calcRR(s1_mid, s1_sl, s1_tp_full)
+        s1_dirColor = s1_dir == "BUY" ? buyColor : sellColor
+        s1_match = isPairMatch(s1_pair)
+        s1_status = s1_match ? "VIEWING" : "SWITCH"
+        s1_statusColor = s1_match ? viewingColor : switchColor
+        table.cell(dashboard, 0, rowNum, s1_pair, text_color=color.white, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 1, rowNum, s1_dir, text_color=s1_dirColor, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 2, rowNum, str.tostring(s1_entry_min, "#.##") + "-" + str.tostring(s1_entry_max, "#.##"), text_color=color.white, bgcolor=rowBg1, text_size=size.tiny)
+        table.cell(dashboard, 3, rowNum, str.tostring(s1_sl, "#.##"), text_color=color.red, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 4, rowNum, str.tostring(s1_tp1, "#.##"), text_color=color.green, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 5, rowNum, str.tostring(s1_tp_full, "#.##"), text_color=color.green, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 6, rowNum, "1:" + str.tostring(s1_rr, "#.#"), text_color=color.yellow, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 7, rowNum, s1_status, text_color=s1_statusColor, bgcolor=rowBg1, text_size=size.small)
+        rowNum += 1
+    
+    // Signal 2
+    if s2_active
+        s2_mid = (s2_entry_min + s2_entry_max) / 2
+        s2_rr = calcRR(s2_mid, s2_sl, s2_tp_full)
+        s2_dirColor = s2_dir == "BUY" ? buyColor : sellColor
+        s2_match = isPairMatch(s2_pair)
+        s2_status = s2_match ? "VIEWING" : "SWITCH"
+        s2_statusColor = s2_match ? viewingColor : switchColor
+        table.cell(dashboard, 0, rowNum, s2_pair, text_color=color.white, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 1, rowNum, s2_dir, text_color=s2_dirColor, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 2, rowNum, str.tostring(s2_entry_min, "#.####") + "-" + str.tostring(s2_entry_max, "#.####"), text_color=color.white, bgcolor=rowBg2, text_size=size.tiny)
+        table.cell(dashboard, 3, rowNum, str.tostring(s2_sl, "#.####"), text_color=color.red, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 4, rowNum, str.tostring(s2_tp1, "#.####"), text_color=color.green, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 5, rowNum, str.tostring(s2_tp_full, "#.####"), text_color=color.green, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 6, rowNum, "1:" + str.tostring(s2_rr, "#.#"), text_color=color.yellow, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 7, rowNum, s2_status, text_color=s2_statusColor, bgcolor=rowBg2, text_size=size.small)
+        rowNum += 1
+    
+    // Signal 3
+    if s3_active
+        s3_mid = (s3_entry_min + s3_entry_max) / 2
+        s3_rr = calcRR(s3_mid, s3_sl, s3_tp_full)
+        s3_dirColor = s3_dir == "BUY" ? buyColor : sellColor
+        s3_match = isPairMatch(s3_pair)
+        s3_status = s3_match ? "VIEWING" : "SWITCH"
+        s3_statusColor = s3_match ? viewingColor : switchColor
+        table.cell(dashboard, 0, rowNum, s3_pair, text_color=color.white, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 1, rowNum, s3_dir, text_color=s3_dirColor, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 2, rowNum, str.tostring(s3_entry_min, "#.####") + "-" + str.tostring(s3_entry_max, "#.####"), text_color=color.white, bgcolor=rowBg1, text_size=size.tiny)
+        table.cell(dashboard, 3, rowNum, str.tostring(s3_sl, "#.####"), text_color=color.red, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 4, rowNum, str.tostring(s3_tp1, "#.####"), text_color=color.green, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 5, rowNum, str.tostring(s3_tp_full, "#.####"), text_color=color.green, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 6, rowNum, "1:" + str.tostring(s3_rr, "#.#"), text_color=color.yellow, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 7, rowNum, s3_status, text_color=s3_statusColor, bgcolor=rowBg1, text_size=size.small)
+        rowNum += 1
+    
+    // Signal 4
+    if s4_active
+        s4_mid = (s4_entry_min + s4_entry_max) / 2
+        s4_rr = calcRR(s4_mid, s4_sl, s4_tp_full)
+        s4_dirColor = s4_dir == "BUY" ? buyColor : sellColor
+        s4_match = isPairMatch(s4_pair)
+        s4_status = s4_match ? "VIEWING" : "SWITCH"
+        s4_statusColor = s4_match ? viewingColor : switchColor
+        table.cell(dashboard, 0, rowNum, s4_pair, text_color=color.white, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 1, rowNum, s4_dir, text_color=s4_dirColor, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 2, rowNum, str.tostring(s4_entry_min, "#.##") + "-" + str.tostring(s4_entry_max, "#.##"), text_color=color.white, bgcolor=rowBg2, text_size=size.tiny)
+        table.cell(dashboard, 3, rowNum, str.tostring(s4_sl, "#.##"), text_color=color.red, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 4, rowNum, str.tostring(s4_tp1, "#.##"), text_color=color.green, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 5, rowNum, str.tostring(s4_tp_full, "#.##"), text_color=color.green, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 6, rowNum, "1:" + str.tostring(s4_rr, "#.#"), text_color=color.yellow, bgcolor=rowBg2, text_size=size.small)
+        table.cell(dashboard, 7, rowNum, s4_status, text_color=s4_statusColor, bgcolor=rowBg2, text_size=size.small)
+        rowNum += 1
+    
+    // Signal 5
+    if s5_active
+        s5_mid = (s5_entry_min + s5_entry_max) / 2
+        s5_rr = calcRR(s5_mid, s5_sl, s5_tp_full)
+        s5_dirColor = s5_dir == "BUY" ? buyColor : sellColor
+        s5_match = isPairMatch(s5_pair)
+        s5_status = s5_match ? "VIEWING" : "SWITCH"
+        s5_statusColor = s5_match ? viewingColor : switchColor
+        table.cell(dashboard, 0, rowNum, s5_pair, text_color=color.white, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 1, rowNum, s5_dir, text_color=s5_dirColor, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 2, rowNum, str.tostring(s5_entry_min, "#") + "-" + str.tostring(s5_entry_max, "#"), text_color=color.white, bgcolor=rowBg1, text_size=size.tiny)
+        table.cell(dashboard, 3, rowNum, str.tostring(s5_sl, "#"), text_color=color.red, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 4, rowNum, str.tostring(s5_tp1, "#"), text_color=color.green, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 5, rowNum, str.tostring(s5_tp_full, "#"), text_color=color.green, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 6, rowNum, "1:" + str.tostring(s5_rr, "#.#"), text_color=color.yellow, bgcolor=rowBg1, text_size=size.small)
+        table.cell(dashboard, 7, rowNum, s5_status, text_color=s5_statusColor, bgcolor=rowBg1, text_size=size.small)
+
+//────────────────────────────────────
+// DRAW VISUALS FOR MATCHING PAIR
+//────────────────────────────────────
+var box zoneBox = na
+var line slLine = na
+var line tp1Line = na
+var line tp2Line = na
+var line tpFullLine = na
+var label arrowLabel = na
+var label infoLabel = na
+
+// Find which signal matches current chart
+matchedSignal = 0
+matchedDir = ""
+matchedEntryMin = 0.0
+matchedEntryMax = 0.0
+matchedSL = 0.0
+matchedTP1 = 0.0
+matchedTP2 = 0.0
+matchedTPFull = 0.0
+matchedConf = 0.0
+matchedSetup = ""
+matchedPair = ""
+
+if s1_active and isPairMatch(s1_pair)
+    matchedSignal := 1
+    matchedDir := s1_dir
+    matchedEntryMin := s1_entry_min
+    matchedEntryMax := s1_entry_max
+    matchedSL := s1_sl
+    matchedTP1 := s1_tp1
+    matchedTP2 := s1_tp2
+    matchedTPFull := s1_tp_full
+    matchedConf := s1_conf
+    matchedSetup := s1_setup
+    matchedPair := s1_pair
+else if s2_active and isPairMatch(s2_pair)
+    matchedSignal := 2
+    matchedDir := s2_dir
+    matchedEntryMin := s2_entry_min
+    matchedEntryMax := s2_entry_max
+    matchedSL := s2_sl
+    matchedTP1 := s2_tp1
+    matchedTP2 := s2_tp2
+    matchedTPFull := s2_tp_full
+    matchedConf := s2_conf
+    matchedSetup := s2_setup
+    matchedPair := s2_pair
+else if s3_active and isPairMatch(s3_pair)
+    matchedSignal := 3
+    matchedDir := s3_dir
+    matchedEntryMin := s3_entry_min
+    matchedEntryMax := s3_entry_max
+    matchedSL := s3_sl
+    matchedTP1 := s3_tp1
+    matchedTP2 := s3_tp2
+    matchedTPFull := s3_tp_full
+    matchedConf := s3_conf
+    matchedSetup := s3_setup
+    matchedPair := s3_pair
+else if s4_active and isPairMatch(s4_pair)
+    matchedSignal := 4
+    matchedDir := s4_dir
+    matchedEntryMin := s4_entry_min
+    matchedEntryMax := s4_entry_max
+    matchedSL := s4_sl
+    matchedTP1 := s4_tp1
+    matchedTP2 := s4_tp2
+    matchedTPFull := s4_tp_full
+    matchedConf := s4_conf
+    matchedSetup := s4_setup
+    matchedPair := s4_pair
+else if s5_active and isPairMatch(s5_pair)
+    matchedSignal := 5
+    matchedDir := s5_dir
+    matchedEntryMin := s5_entry_min
+    matchedEntryMax := s5_entry_max
+    matchedSL := s5_sl
+    matchedTP1 := s5_tp1
+    matchedTP2 := s5_tp2
+    matchedTPFull := s5_tp_full
+    matchedConf := s5_conf
+    matchedSetup := s5_setup
+    matchedPair := s5_pair
+
+// Draw visuals if we have a matching signal
+if showVisualsOnMatch and matchedSignal > 0 and barstate.islast
+    // Clean up old drawings
+    box.delete(zoneBox)
+    line.delete(slLine)
+    line.delete(tp1Line)
+    line.delete(tp2Line)
+    line.delete(tpFullLine)
+    label.delete(arrowLabel)
+    label.delete(infoLabel)
+    
+    isBuy = matchedDir == "BUY"
+    zoneCol = isBuy ? zoneColorBuy : zoneColorSell
+    arrowCol = isBuy ? buyColor : sellColor
+    
+    // Entry zone box
+    zoneBox := box.new(bar_index - lookback, matchedEntryMax, bar_index + extend_right, matchedEntryMin, bgcolor=zoneCol, border_color=zoneCol, border_width=1)
+    
+    // SL and TP lines
+    slLine := line.new(bar_index - lookback, matchedSL, bar_index + extend_right, matchedSL, color=slColorVis, style=line.style_solid, width=2)
+    tp1Line := line.new(bar_index - lookback, matchedTP1, bar_index + extend_right, matchedTP1, color=tpColorVis, style=line.style_dashed, width=1)
+    tp2Line := line.new(bar_index - lookback, matchedTP2, bar_index + extend_right, matchedTP2, color=tpColorVis, style=line.style_dashed, width=1)
+    tpFullLine := line.new(bar_index - lookback, matchedTPFull, bar_index + extend_right, matchedTPFull, color=tpColorVis, style=line.style_solid, width=2)
+    
+    // Direction arrow
+    if isBuy
+        arrowLabel := label.new(bar_index, matchedEntryMin, "BUY", style=label.style_label_up, color=arrowCol, textcolor=color.white, size=size.normal)
+    else
+        arrowLabel := label.new(bar_index, matchedEntryMax, "SELL", style=label.style_label_down, color=arrowCol, textcolor=color.white, size=size.normal)
+    
+    // Info label
+    mid = (matchedEntryMin + matchedEntryMax) / 2
+    rr = calcRR(mid, matchedSL, matchedTPFull)
+    infoText = matchedPair + " | " + matchedDir + " | Conf: " + str.tostring(matchedConf, "#") + "% | R:R 1:" + str.tostring(rr, "#.#") + "\n" + matchedSetup
+    infoLabel := label.new(bar_index + extend_right + 2, matchedEntryMax, infoText, style=label.style_label_left, color=color.new(color.blue, 70), textcolor=color.white, size=size.small)
+

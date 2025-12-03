@@ -1,0 +1,18 @@
+{
+  "name": "barbellfx-signal-api",
+  "version": "1.0.0",
+  "description": "BarbellFX Signal API - Receives signals from GPT, serves to MT5 EA",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
