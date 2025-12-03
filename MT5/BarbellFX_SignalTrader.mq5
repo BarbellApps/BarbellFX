@@ -141,27 +141,38 @@ void OnTick() {
 //| Fetch signal from API                                             |
 //+------------------------------------------------------------------+
 void FetchSignal() {
-   string headers = "Content-Type: application/json\r\n";
    char post[];
    char result[];
    string result_headers;
    
+   ResetLastError();
+   
+   // Use minimal headers - some MT5 versions are picky
    int res = WebRequest(
       "GET",
       API_URL,
-      headers,
+      "",           // Empty headers
       API_Timeout,
       post,
       result,
       result_headers
    );
    
+   int error = GetLastError();
+   
    if(res == -1) {
-      int error = GetLastError();
       if(error == 4014) {
-         Print("ERROR: WebRequest not allowed. Add URL to allowed list:");
-         Print("Tools -> Options -> Expert Advisors -> Allow WebRequest");
-         Print("Add: ", API_URL);
+         Print("========================================");
+         Print("ERROR 4014: WebRequest blocked by MT5");
+         Print("----------------------------------------");
+         Print("SOLUTION:");
+         Print("1. Go to: Tools -> Options");
+         Print("2. Click: Expert Advisors tab");
+         Print("3. CHECK: Allow WebRequest for listed URL");
+         Print("4. ADD this URL:");
+         Print("   https://web-production-0617.up.railway.app");
+         Print("5. Click OK then RESTART MT5!");
+         Print("========================================");
       } else {
          Print("WebRequest error: ", error);
       }
@@ -174,6 +185,7 @@ void FetchSignal() {
    }
    
    string response = CharArrayToString(result);
+   Print("Signal fetched successfully");
    ParseSignal(response);
 }
 

@@ -102,36 +102,57 @@ int OnCalculate(const int rates_total,
 //| Fetch signal from API                                             |
 //+------------------------------------------------------------------+
 void FetchSignal() {
-   string headers = "Content-Type: application/json\r\n";
    char post[];
    char result[];
    string result_headers;
    
+   ResetLastError();
+   
+   // Use simple WebRequest with minimal headers
    int res = WebRequest(
       "GET",
       API_URL,
-      headers,
-      5000,
-      post,
+      "",              // No extra headers
+      5000,            // Timeout in ms
+      post,            // Empty POST data for GET request
       result,
       result_headers
    );
    
+   int error = GetLastError();
+   
    if(res == -1) {
-      int error = GetLastError();
       if(error == 4014) {
-         Print("WebRequest not allowed - add URL to allowed list");
+         Print("========================================");
+         Print("ERROR 4014: WebRequest blocked by MT5");
+         Print("----------------------------------------");
+         Print("TO FIX THIS:");
+         Print("1. Go to: Tools -> Options");
+         Print("2. Click: Expert Advisors tab");
+         Print("3. CHECK: Allow WebRequest for listed URL");
+         Print("4. ADD URL (without /signal at end):");
+         Print("   https://web-production-0617.up.railway.app");
+         Print("5. Click OK");
+         Print("6. CLOSE MT5 COMPLETELY (File -> Exit)");
+         Print("7. REOPEN MT5");
+         Print("========================================");
+      } else if(error == 5203) {
+         Print("Connection failed - check internet connection");
+      } else {
+         Print("WebRequest error code: ", error);
       }
       hasSignal = false;
       return;
    }
    
    if(res != 200) {
+      Print("API returned HTTP status: ", res);
       hasSignal = false;
       return;
    }
    
    string response = CharArrayToString(result);
+   Print("Signal received successfully!");
    ParseSignal(response);
    lastFetch = TimeCurrent();
 }
