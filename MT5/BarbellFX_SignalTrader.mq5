@@ -55,6 +55,7 @@ input int      MagicNumber = 123456;          // Magic number for trades
 CTrade         trade;
 CPositionInfo  positionInfo;
 datetime       lastFetchTime = 0;
+datetime       signalReceiveTime = 0;  // When we received the current signal
 string         lastSignalId = "";
 bool           initialized = false;
 
@@ -411,6 +412,7 @@ void ParseSignal(string json) {
          Print("============================");
          
          lastSignalId = signalId;
+         signalReceiveTime = TimeCurrent();  // Mark when we received this signal
          currentSignal = signal;
       }
    }
@@ -461,12 +463,12 @@ void ProcessSignal() {
       }
    }
    
-   // Check signal expiry
-   if(SignalExpiryMinutes > 0 && currentSignal.timestamp != "") {
-      datetime signalTime = StringToTime(currentSignal.timestamp);
-      if(TimeCurrent() - signalTime > SignalExpiryMinutes * 60) {
-         Print("Signal expired");
+   // Check signal expiry - use signal receive time instead of API timestamp
+   if(SignalExpiryMinutes > 0 && signalReceiveTime > 0) {
+      if(TimeCurrent() - signalReceiveTime > SignalExpiryMinutes * 60) {
+         Print("Signal expired after ", SignalExpiryMinutes, " minutes");
          ResetSignal();
+         signalReceiveTime = 0;
          return;
       }
    }
