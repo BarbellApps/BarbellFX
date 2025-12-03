@@ -303,68 +303,77 @@ function showSignalPanel(signal) {
       </div>
       
       <!-- Direction Badge -->
-      <div style="
+      <div class="copyable-field" data-value="${signal.direction}" style="
         background: ${dirBg};
         border-bottom: 1px solid rgba(255,255,255,0.1);
         padding: 12px 16px;
         text-align: center;
-      ">
+        cursor: pointer;
+        transition: all 0.2s;
+      " onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
         <span style="
           color: ${dirColor};
           font-size: 24px;
           font-weight: 800;
           letter-spacing: 2px;
         ">${signal.direction} ${signal.pair}</span>
+        <div style="color: ${dirColor}; font-size: 9px; opacity: 0.7; margin-top: 4px;">(click to copy direction)</div>
       </div>
       
       <!-- Signal Details -->
       <div style="padding: 16px;">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-          <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
-            <div style="color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Entry Min</div>
-            <div style="color: #fff; font-size: 14px; font-weight: 600;" id="copy-entry-min">${signal.entry_min}</div>
+          <div class="copyable-field" data-value="${signal.entry_min}" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; cursor: pointer; transition: all 0.2s; position: relative;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+            <div style="color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Entry Min <span style="opacity: 0.6; font-size: 9px;">(click to copy)</span></div>
+            <div style="color: #fff; font-size: 14px; font-weight: 600;">${signal.entry_min}</div>
           </div>
-          <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
-            <div style="color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Entry Max</div>
-            <div style="color: #fff; font-size: 14px; font-weight: 600;" id="copy-entry-max">${signal.entry_max}</div>
+          <div class="copyable-field" data-value="${signal.entry_max}" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; cursor: pointer; transition: all 0.2s; position: relative;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+            <div style="color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Entry Max <span style="opacity: 0.6; font-size: 9px;">(click to copy)</span></div>
+            <div style="color: #fff; font-size: 14px; font-weight: 600;">${signal.entry_max}</div>
           </div>
         </div>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;">
-          <div style="background: rgba(255,68,68,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,68,68,0.3);">
-            <div style="color: #ff6666; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Stop Loss</div>
+          <div class="copyable-field" data-value="${signal.stop_loss}" style="background: rgba(255,68,68,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,68,68,0.3); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,68,68,0.2)'" onmouseout="this.style.background='rgba(255,68,68,0.1)'">
+            <div style="color: #ff6666; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Stop Loss <span style="opacity: 0.6; font-size: 9px;">(click)</span></div>
             <div style="color: #ff4444; font-size: 13px; font-weight: 600;">${signal.stop_loss}</div>
           </div>
-          <div style="background: rgba(0,255,136,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(0,255,136,0.3);">
-            <div style="color: #66ff99; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">TP1</div>
+          <div class="copyable-field" data-value="${signal.tp1}" style="background: rgba(0,255,136,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(0,255,136,0.3); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(0,255,136,0.2)'" onmouseout="this.style.background='rgba(0,255,136,0.1)'">
+            <div style="color: #66ff99; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">TP1 <span style="opacity: 0.6; font-size: 9px;">(click)</span></div>
             <div style="color: #00ff88; font-size: 13px; font-weight: 600;">${signal.tp1}</div>
           </div>
-          <div style="background: rgba(0,255,136,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(0,255,136,0.3);">
-            <div style="color: #66ff99; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Full TP</div>
+          <div class="copyable-field" data-value="${signal.tp_full}" style="background: rgba(0,255,136,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(0,255,136,0.3); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(0,255,136,0.2)'" onmouseout="this.style.background='rgba(0,255,136,0.1)'">
+            <div style="color: #66ff99; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Full TP <span style="opacity: 0.6; font-size: 9px;">(click)</span></div>
             <div style="color: #00ff88; font-size: 13px; font-weight: 600;">${signal.tp_full}</div>
           </div>
         </div>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-          <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
-            <div style="color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">TP2</div>
+          <div class="copyable-field" data-value="${signal.tp2}" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+            <div style="color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">TP2 <span style="opacity: 0.6; font-size: 9px;">(click)</span></div>
             <div style="color: #fff; font-size: 14px; font-weight: 600;">${signal.tp2}</div>
           </div>
-          <div style="background: rgba(255,215,0,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,215,0,0.3);">
-            <div style="color: #FFD700; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Confidence</div>
+          <div class="copyable-field" data-value="${signal.confidence}%" style="background: rgba(255,215,0,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,215,0,0.3); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,215,0,0.2)'" onmouseout="this.style.background='rgba(255,215,0,0.1)'">
+            <div style="color: #FFD700; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Confidence <span style="opacity: 0.6; font-size: 9px;">(click)</span></div>
             <div style="color: #FFD700; font-size: 14px; font-weight: 600;">${signal.confidence}%</div>
           </div>
         </div>
         
         ${signal.setup ? `
-        <div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px; margin-bottom: 12px;">
-          <div style="color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Setup</div>
+        <div class="copyable-field" data-value="${signal.setup.replace(/"/g, '&quot;')}" style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+          <div style="color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Setup <span style="opacity: 0.6; font-size: 9px;">(click to copy)</span></div>
           <div style="color: #ccc; font-size: 12px;">${signal.setup}</div>
         </div>
         ` : ''}
         
-        <div style="color: #666; font-size: 10px; text-align: center;">
-          ${signal.timestamp ? new Date(signal.timestamp).toLocaleString() : 'Just now'}
+        <div style="display: flex; gap: 12px; justify-content: center; align-items: center; color: #666; font-size: 10px; padding: 8px;">
+          <span class="copyable-field" data-value="${signal.pair}" style="cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+            Pair: <strong>${signal.pair}</strong> <span style="opacity: 0.6;">(click)</span>
+          </span>
+          <span style="opacity: 0.3;">|</span>
+          <span class="copyable-field" data-value="${signal.timestamp ? new Date(signal.timestamp).toLocaleString() : 'Just now'}" style="cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+            ${signal.timestamp ? new Date(signal.timestamp).toLocaleString() : 'Just now'} <span style="opacity: 0.6;">(click)</span>
+          </span>
         </div>
       </div>
       
@@ -407,9 +416,21 @@ function showSignalPanel(signal) {
     panel.remove();
   });
   
-  // Copy button
+  // Copy button (full details)
   document.getElementById('barbellfx-copy').addEventListener('click', async () => {
     await copySignalDetails(signal);
+  });
+  
+  // Individual field copy handlers
+  const copyableFields = panel.querySelectorAll('.copyable-field');
+  copyableFields.forEach(field => {
+    field.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const value = field.getAttribute('data-value');
+      if (value) {
+        await copyToClipboard(value, field);
+      }
+    });
   });
   
   // Make panel draggable
@@ -454,6 +475,68 @@ function makeDraggable(element) {
 // Legacy notification function (kept for compatibility)
 function showNotification(signal) {
   showSignalPanel(signal);
+}
+
+// Copy individual value to clipboard
+async function copyToClipboard(value, element) {
+  try {
+    // Copy to clipboard
+    await navigator.clipboard.writeText(value);
+    
+    // Show visual feedback on the clicked element
+    const originalBg = element.style.background;
+    const originalContent = element.innerHTML;
+    
+    // Add checkmark temporarily
+    element.style.background = 'rgba(0, 255, 136, 0.3)';
+    element.style.border = '2px solid #00ff88';
+    
+    // Find the value div and add checkmark
+    const valueDiv = element.querySelector('div:last-child') || element;
+    const originalText = valueDiv.textContent;
+    valueDiv.innerHTML = '✓ Copied!';
+    valueDiv.style.color = '#00ff88';
+    
+    // Reset after 1.5 seconds
+    setTimeout(() => {
+      element.style.background = originalBg;
+      element.style.border = '';
+      valueDiv.innerHTML = originalText;
+      valueDiv.style.color = '';
+    }, 1500);
+    
+    console.log('Copied to clipboard:', value);
+    
+  } catch (error) {
+    console.error('Copy error:', error);
+    
+    // Fallback method
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      
+      // Show feedback
+      const valueDiv = element.querySelector('div:last-child') || element;
+      const originalText = valueDiv.textContent;
+      valueDiv.innerHTML = '✓ Copied!';
+      valueDiv.style.color = '#00ff88';
+      
+      setTimeout(() => {
+        valueDiv.innerHTML = originalText;
+        valueDiv.style.color = '';
+      }, 1500);
+      
+    } catch (fallbackError) {
+      console.error('Fallback copy failed:', fallbackError);
+    }
+  }
 }
 
 // Copy signal details to clipboard
