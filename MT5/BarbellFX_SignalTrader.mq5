@@ -104,9 +104,6 @@ int OnInit() {
    trade.SetDeviationInPoints(10);
    trade.SetTypeFilling(ORDER_FILLING_IOC);
    
-   // Reset signal
-   ResetSignal();
-   
    // Check if WebRequest is allowed
    Print("==============================================");
    Print("BarbellFX Signal Trader EA Started");
@@ -120,9 +117,17 @@ int OnInit() {
    Print("Add: ", API_URL);
    Print("");
    
+   // Don't reset signal - keep current one if it exists
+   // This prevents signal loss when changing settings or timeframe
+   if(!currentSignal.valid) {
+      Print("No active signal - fetching from API...");
+   } else {
+      Print("Keeping current signal: ", currentSignal.pair, " ", currentSignal.direction);
+   }
+   
    initialized = true;
    
-   // Initial fetch
+   // Fetch new signal (will update if valid, otherwise keep current)
    FetchSignal();
    
    return(INIT_SUCCEEDED);
@@ -538,6 +543,12 @@ void ParseSignal(string json) {
          signalReceiveTime = TimeCurrent();  // Mark when we received this signal
          currentSignal = signal;
       }
+   } else {
+      // API returned empty/invalid signal - keep current signal if it exists
+      if(currentSignal.valid) {
+         Print("API returned empty signal - keeping current signal: ", currentSignal.pair, " ", currentSignal.direction);
+      }
+      // Don't update currentSignal - keep the existing one
    }
 }
 
