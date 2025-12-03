@@ -442,9 +442,8 @@
     <button class="refresh-btn" id="refreshBtn" onclick="fetchSignal()">🔄</button>
 
     <script>
-        // Use local API for testing, or Railway for production
-        const API_URL = 'http://localhost:3000/signal';
-        // const API_URL = 'https://web-production-0617.up.railway.app/signal';
+        // Railway production URL
+        const API_URL = 'https://web-production-0617.up.railway.app/signal';
         let currentSignal = null;
 
         // Fetch signal from API
