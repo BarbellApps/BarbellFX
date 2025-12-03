@@ -57,7 +57,47 @@ def root():
 @app.post("/signal")
 def receive_signal(signal: Signal):
     global latest_signal
-    latest_signal = signal.dict()
+    
+    # Extract prices
+    entry_min = signal.entry_min
+    entry_max = signal.entry_max
+    stop_loss = signal.stop_loss
+    tp1 = signal.tp1
+    tp2 = signal.tp2
+    tp_full = signal.tp_full
+    
+    # Normalize Gold (XAUUSD) prices - if prices are < 100, multiply by 1000
+    pair_upper = (signal.pair or "").upper()
+    is_gold = "XAU" in pair_upper or "GOLD" in pair_upper
+    
+    if is_gold:
+        # Check if prices need conversion (if any price is < 100, assume wrong format)
+        prices = [p for p in [entry_min, entry_max, stop_loss, tp1, tp2, tp_full] if p > 0]
+        needs_conversion = len(prices) > 0 and any(p < 100 for p in prices)
+        
+        if needs_conversion:
+            entry_min = entry_min * 1000
+            entry_max = entry_max * 1000
+            stop_loss = stop_loss * 1000
+            tp1 = tp1 * 1000
+            tp2 = tp2 * 1000
+            tp_full = tp_full * 1000
+            print("Gold prices normalized (multiplied by 1000)")
+    
+    latest_signal = {
+        "pair": signal.pair,
+        "action": signal.action,
+        "entry_min": entry_min,
+        "entry_max": entry_max,
+        "stop_loss": stop_loss,
+        "tp1": tp1,
+        "tp2": tp2,
+        "tp_full": tp_full,
+        "confidence": signal.confidence,
+        "setup": signal.setup,
+        "timestamp": signal.timestamp
+    }
+    
     print(f"=== NEW SIGNAL RECEIVED ===")
     print(latest_signal)
     print(f"===========================")

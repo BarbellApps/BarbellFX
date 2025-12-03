@@ -65,15 +65,43 @@ app.post('/signal', (req, res) => {
   // Normalize direction field
   const signalDirection = action || direction || '';
   
+  // Parse prices
+  let entryMin = parseFloat(entry_min) || 0;
+  let entryMax = parseFloat(entry_max) || 0;
+  let stopLoss = parseFloat(stop_loss) || 0;
+  let tp1Val = parseFloat(tp1) || 0;
+  let tp2Val = parseFloat(tp2) || 0;
+  let tpFull = parseFloat(tp_full) || 0;
+  
+  // Normalize Gold (XAUUSD) prices - if prices are < 100, multiply by 1000
+  const pairUpper = (pair || '').toUpperCase();
+  const isGold = pairUpper.includes('XAU') || pairUpper.includes('GOLD');
+  
+  if (isGold) {
+    // Check if prices need conversion (if any price is < 100, assume wrong format)
+    const prices = [entryMin, entryMax, stopLoss, tp1Val, tp2Val, tpFull].filter(p => p > 0);
+    const needsConversion = prices.length > 0 && prices.some(p => p < 100);
+    
+    if (needsConversion) {
+      entryMin = entryMin * 1000;
+      entryMax = entryMax * 1000;
+      stopLoss = stopLoss * 1000;
+      tp1Val = tp1Val * 1000;
+      tp2Val = tp2Val * 1000;
+      tpFull = tpFull * 1000;
+      console.log('Gold prices normalized (multiplied by 1000)');
+    }
+  }
+  
   currentSignal = {
     pair: pair || currentSignal.pair,
     action: signalDirection.toUpperCase(),
-    entry_min: parseFloat(entry_min) || 0,
-    entry_max: parseFloat(entry_max) || 0,
-    stop_loss: parseFloat(stop_loss) || 0,
-    tp1: parseFloat(tp1) || 0,
-    tp2: parseFloat(tp2) || 0,
-    tp_full: parseFloat(tp_full) || 0,
+    entry_min: entryMin,
+    entry_max: entryMax,
+    stop_loss: stopLoss,
+    tp1: tp1Val,
+    tp2: tp2Val,
+    tp_full: tpFull,
     confidence: parseFloat(confidence) || 0,
     setup: setup || "",
     timestamp: timestamp || new Date().toISOString()
