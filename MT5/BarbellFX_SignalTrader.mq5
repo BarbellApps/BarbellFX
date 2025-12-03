@@ -49,6 +49,24 @@ input int      SessionEndHour = 20;           // Session end (hour)
 // Magic Number
 input int      MagicNumber = 123456;          // Magic number for trades
 
+// Dashboard Display Settings
+input group "=== Dashboard Settings ==="
+input int      PanelX = 20;                   // Panel X position
+input int      PanelY = 50;                   // Panel Y position
+input int      PanelWidth = 350;              // Panel width
+input int      FontSizeTitle = 13;            // Title font size
+input int      FontSizeHeader = 12;           // Header font size
+input int      FontSizeNormal = 10;           // Normal text size
+input int      LineSpacing = 20;              // Line spacing
+input bool     ShowLotSize = true;            // Show calculated lot size
+input bool     ShowMoneyInfo = true;          // Show TP/SL in money on chart
+input bool     ShowPipsInfo = true;           // Show TP/SL in pips on chart
+
+// Order Type
+input group "=== Order Settings ==="
+input bool     UseLimitOrders = false;        // Use limit orders instead of market
+input int      LimitOrderSlippage = 5;        // Limit order slippage (points)
+
 //+------------------------------------------------------------------+
 //| GLOBAL VARIABLES                                                  |
 //+------------------------------------------------------------------+
@@ -123,18 +141,20 @@ void OnDeinit(const int reason) {
 //| Draw visual panel on chart                                        |
 //+------------------------------------------------------------------+
 void DrawPanel() {
-   int x = 20;
-   int y = 50;
-   int panelWidth = 300;
-   int lineHeight = 18;
+   int x = PanelX;
+   int y = PanelY;
+   int lineHeight = LineSpacing;
+   
+   // Calculate panel height based on content
+   int panelHeight = currentSignal.valid ? 380 : 100;
    
    // Background
    ObjectDelete(0, "BBFX_BG");
    ObjectCreate(0, "BBFX_BG", OBJ_RECTANGLE_LABEL, 0, 0, 0);
    ObjectSetInteger(0, "BBFX_BG", OBJPROP_XDISTANCE, x - 10);
    ObjectSetInteger(0, "BBFX_BG", OBJPROP_YDISTANCE, y - 10);
-   ObjectSetInteger(0, "BBFX_BG", OBJPROP_XSIZE, panelWidth);
-   ObjectSetInteger(0, "BBFX_BG", OBJPROP_YSIZE, currentSignal.valid ? 280 : 120);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_XSIZE, PanelWidth);
+   ObjectSetInteger(0, "BBFX_BG", OBJPROP_YSIZE, panelHeight);
    ObjectSetInteger(0, "BBFX_BG", OBJPROP_BGCOLOR, clrBlack);
    ObjectSetInteger(0, "BBFX_BG", OBJPROP_BORDER_TYPE, BORDER_FLAT);
    ObjectSetInteger(0, "BBFX_BG", OBJPROP_COLOR, clrGold);
@@ -143,16 +163,16 @@ void DrawPanel() {
    ObjectSetInteger(0, "BBFX_BG", OBJPROP_BACK, false);
    
    // Header
-   DrawLabel("BBFX_Header", x, y, "◆ BARBELLFX SIGNAL", clrGold, 11, true);
+   DrawLabel("BBFX_Header", x, y, "◆ BARBELLFX SIGNAL", clrGold, FontSizeTitle, true);
    y += lineHeight + 5;
    
-   DrawLabel("BBFX_Divider", x, y, "━━━━━━━━━━━━━━━━━━━━━━━━", clrGold, 8, false);
+   DrawLabel("BBFX_Divider", x, y, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", clrGold, FontSizeNormal - 2, false);
    y += lineHeight;
    
    if(!currentSignal.valid) {
-      DrawLabel("BBFX_NoSignal", x, y, "⬜ No Active Signal", clrGray, 10, false);
+      DrawLabel("BBFX_NoSignal", x, y, "⬜ No Active Signal", clrGray, FontSizeNormal, false);
       y += lineHeight;
-      DrawLabel("BBFX_Waiting", x, y, "Waiting for GPT signal...", clrDimGray, 9, false);
+      DrawLabel("BBFX_Waiting", x, y, "Waiting for GPT signal...", clrDimGray, FontSizeNormal - 1, false);
       // Hide other objects
       ObjectDelete(0, "BBFX_Pair");
       ObjectDelete(0, "BBFX_Dir");
@@ -161,6 +181,7 @@ void DrawPanel() {
       ObjectDelete(0, "BBFX_TP");
       ObjectDelete(0, "BBFX_Conf");
       ObjectDelete(0, "BBFX_Status");
+      ObjectDelete(0, "BBFX_LotSize");
       ObjectDelete(0, "BBFX_EntryZone");
       ObjectDelete(0, "BBFX_SLLine");
       ObjectDelete(0, "BBFX_TP1Line");
@@ -173,41 +194,52 @@ void DrawPanel() {
    bool isBuy = (currentSignal.direction == "BUY");
    color dirColor = isBuy ? clrLime : clrRed;
    
-   DrawLabel("BBFX_Pair", x, y, currentSignal.pair, clrWhite, 12, true);
+   DrawLabel("BBFX_Pair", x, y, currentSignal.pair, clrWhite, FontSizeHeader, true);
    y += lineHeight;
    
-   DrawLabel("BBFX_Dir", x, y, currentSignal.direction, dirColor, 16, true);
+   DrawLabel("BBFX_Dir", x, y, currentSignal.direction, dirColor, FontSizeHeader + 4, true);
    y += lineHeight + 10;
    
-   DrawLabel("BBFX_EntryLbl", x, y, "Entry Zone:", clrGray, 9, false);
+   DrawLabel("BBFX_EntryLbl", x, y, "Entry Zone:", clrGray, FontSizeNormal, false);
    y += lineHeight;
-   DrawLabel("BBFX_Entry", x, y, DoubleToString(currentSignal.entry_min, _Digits) + " - " + DoubleToString(currentSignal.entry_max, _Digits), clrGold, 10, true);
+   DrawLabel("BBFX_Entry", x, y, DoubleToString(currentSignal.entry_min, _Digits) + " - " + DoubleToString(currentSignal.entry_max, _Digits), clrGold, FontSizeNormal, true);
    y += lineHeight + 5;
    
-   DrawLabel("BBFX_SLLbl", x, y, "Stop Loss:", clrGray, 9, false);
-   DrawLabel("BBFX_SL", x + 100, y, DoubleToString(currentSignal.stop_loss, _Digits), clrRed, 10, true);
+   DrawLabel("BBFX_SLLbl", x, y, "Stop Loss:", clrGray, FontSizeNormal, false);
+   DrawLabel("BBFX_SL", x + PanelWidth/2, y, DoubleToString(currentSignal.stop_loss, _Digits), clrRed, FontSizeNormal, true);
    y += lineHeight;
    
-   DrawLabel("BBFX_TP1Lbl", x, y, "TP1 (50%):", clrGray, 9, false);
-   DrawLabel("BBFX_TP1", x + 100, y, DoubleToString(currentSignal.tp1, _Digits), clrLime, 10, false);
+   DrawLabel("BBFX_TP1Lbl", x, y, "TP1 (50%):", clrGray, FontSizeNormal, false);
+   DrawLabel("BBFX_TP1", x + PanelWidth/2, y, DoubleToString(currentSignal.tp1, _Digits), clrLime, FontSizeNormal, false);
    y += lineHeight;
    
-   DrawLabel("BBFX_TPFullLbl", x, y, "Full TP:", clrGray, 9, false);
-   DrawLabel("BBFX_TPFull", x + 100, y, DoubleToString(currentSignal.tp_full, _Digits), clrLime, 10, true);
+   DrawLabel("BBFX_TPFullLbl", x, y, "Full TP:", clrGray, FontSizeNormal, false);
+   DrawLabel("BBFX_TPFull", x + PanelWidth/2, y, DoubleToString(currentSignal.tp_full, _Digits), clrLime, FontSizeNormal, true);
    y += lineHeight + 5;
+   
+   // Calculate and show lot size
+   if(ShowLotSize && SymbolMatches(currentSignal.pair, Symbol())) {
+      double entryMid = (currentSignal.entry_min + currentSignal.entry_max) / 2;
+      double lotSize = CalculateLotSize(Symbol(), currentSignal.stop_loss, isBuy);
+      if(lotSize > 0) {
+         DrawLabel("BBFX_LotSizeLbl", x, y, "Lot Size:", clrGray, FontSizeNormal, false);
+         DrawLabel("BBFX_LotSize", x + PanelWidth/2, y, DoubleToString(lotSize, 2) + " lots", clrAqua, FontSizeNormal, true);
+         y += lineHeight;
+      }
+   }
    
    // Confidence & R:R
    double conf = currentSignal.confidence < 1 ? currentSignal.confidence * 100 : currentSignal.confidence;
-   DrawLabel("BBFX_ConfLbl", x, y, "Confidence:", clrGray, 9, false);
-   DrawLabel("BBFX_Conf", x + 100, y, DoubleToString(conf, 0) + "%", clrGold, 10, true);
+   DrawLabel("BBFX_ConfLbl", x, y, "Confidence:", clrGray, FontSizeNormal, false);
+   DrawLabel("BBFX_Conf", x + PanelWidth/2, y, DoubleToString(conf, 0) + "%", clrGold, FontSizeNormal, true);
    y += lineHeight;
    
    double entryMid = (currentSignal.entry_min + currentSignal.entry_max) / 2;
    double risk = MathAbs(entryMid - currentSignal.stop_loss);
    double reward = MathAbs(currentSignal.tp_full - entryMid);
    double rr = risk > 0 ? reward / risk : 0;
-   DrawLabel("BBFX_RRLbl", x, y, "Risk:Reward:", clrGray, 9, false);
-   DrawLabel("BBFX_RR", x + 100, y, "1:" + DoubleToString(rr, 1), clrLime, 10, true);
+   DrawLabel("BBFX_RRLbl", x, y, "Risk:Reward:", clrGray, FontSizeNormal, false);
+   DrawLabel("BBFX_RR", x + PanelWidth/2, y, "1:" + DoubleToString(rr, 1), clrLime, FontSizeNormal, true);
    y += lineHeight + 10;
    
    // Status
@@ -228,7 +260,7 @@ void DrawPanel() {
       statusColor = clrGold;
    }
    
-   DrawLabel("BBFX_Status", x, y, statusText, statusColor, 9, true);
+   DrawLabel("BBFX_Status", x, y, statusText, statusColor, FontSizeNormal, true);
    
    // Draw levels on chart if symbol matches
    if(symbolMatch) {
@@ -263,6 +295,15 @@ void DrawLevels() {
    
    bool isBuy = (currentSignal.direction == "BUY");
    color zoneColor = isBuy ? clrLime : clrRed;
+   double entryMid = (currentSignal.entry_min + currentSignal.entry_max) / 2;
+   
+   // Calculate lot size for money display
+   double lotSize = CalculateLotSize(Symbol(), currentSignal.stop_loss, isBuy);
+   
+   // Calculate pips
+   double point = SymbolInfoDouble(Symbol(), SYMBOL_POINT);
+   int digits = (int)SymbolInfoInteger(Symbol(), SYMBOL_DIGITS);
+   double pipValue = (digits == 3 || digits == 5) ? point * 10 : point;
    
    // Entry Zone
    ObjectDelete(0, "BBFX_EntryZone");
@@ -271,12 +312,32 @@ void DrawLevels() {
    ObjectSetInteger(0, "BBFX_EntryZone", OBJPROP_FILL, true);
    ObjectSetInteger(0, "BBFX_EntryZone", OBJPROP_BACK, true);
    
-   // SL Line
+   // SL Line with info
    ObjectDelete(0, "BBFX_SLLine");
    ObjectCreate(0, "BBFX_SLLine", OBJ_HLINE, 0, 0, currentSignal.stop_loss);
    ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_COLOR, clrRed);
    ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_WIDTH, 2);
    ObjectSetInteger(0, "BBFX_SLLine", OBJPROP_STYLE, STYLE_SOLID);
+   
+   // SL Label with pips and money
+   if(ShowPipsInfo || ShowMoneyInfo) {
+      double slDistance = MathAbs(entryMid - currentSignal.stop_loss);
+      double slPips = slDistance / pipValue;
+      
+      string slText = "SL: " + DoubleToString(currentSignal.stop_loss, _Digits);
+      if(ShowPipsInfo) slText += " | " + DoubleToString(slPips, 1) + " pips";
+      if(ShowMoneyInfo && lotSize > 0) {
+         double slMoney = CalculateMoneyAtPrice(Symbol(), lotSize, entryMid, currentSignal.stop_loss, isBuy);
+         slText += " | $" + DoubleToString(MathAbs(slMoney), 2);
+      }
+      
+      ObjectDelete(0, "BBFX_SLLabel");
+      ObjectCreate(0, "BBFX_SLLabel", OBJ_TEXT, 0, timeEnd, currentSignal.stop_loss);
+      ObjectSetString(0, "BBFX_SLLabel", OBJPROP_TEXT, slText);
+      ObjectSetInteger(0, "BBFX_SLLabel", OBJPROP_COLOR, clrRed);
+      ObjectSetInteger(0, "BBFX_SLLabel", OBJPROP_FONTSIZE, FontSizeNormal);
+      ObjectSetInteger(0, "BBFX_SLLabel", OBJPROP_ANCHOR, ANCHOR_LEFT);
+   }
    
    // TP1 Line
    ObjectDelete(0, "BBFX_TP1Line");
@@ -285,12 +346,74 @@ void DrawLevels() {
    ObjectSetInteger(0, "BBFX_TP1Line", OBJPROP_WIDTH, 1);
    ObjectSetInteger(0, "BBFX_TP1Line", OBJPROP_STYLE, STYLE_DASH);
    
-   // Full TP Line
+   // TP1 Label
+   if(ShowPipsInfo || ShowMoneyInfo) {
+      double tp1Distance = MathAbs(currentSignal.tp1 - entryMid);
+      double tp1Pips = tp1Distance / pipValue;
+      
+      string tp1Text = "TP1: " + DoubleToString(currentSignal.tp1, _Digits);
+      if(ShowPipsInfo) tp1Text += " | " + DoubleToString(tp1Pips, 1) + " pips";
+      if(ShowMoneyInfo && lotSize > 0) {
+         double tp1Money = CalculateMoneyAtPrice(Symbol(), lotSize * TP1_ClosePercent / 100, entryMid, currentSignal.tp1, isBuy);
+         tp1Text += " | $" + DoubleToString(tp1Money, 2);
+      }
+      
+      ObjectDelete(0, "BBFX_TP1Label");
+      ObjectCreate(0, "BBFX_TP1Label", OBJ_TEXT, 0, timeEnd, currentSignal.tp1);
+      ObjectSetString(0, "BBFX_TP1Label", OBJPROP_TEXT, tp1Text);
+      ObjectSetInteger(0, "BBFX_TP1Label", OBJPROP_COLOR, clrLime);
+      ObjectSetInteger(0, "BBFX_TP1Label", OBJPROP_FONTSIZE, FontSizeNormal);
+      ObjectSetInteger(0, "BBFX_TP1Label", OBJPROP_ANCHOR, ANCHOR_LEFT);
+   }
+   
+   // Full TP Line with info
    ObjectDelete(0, "BBFX_TPFullLine");
    ObjectCreate(0, "BBFX_TPFullLine", OBJ_HLINE, 0, 0, currentSignal.tp_full);
    ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_COLOR, clrLime);
    ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_WIDTH, 2);
    ObjectSetInteger(0, "BBFX_TPFullLine", OBJPROP_STYLE, STYLE_SOLID);
+   
+   // Full TP Label
+   if(ShowPipsInfo || ShowMoneyInfo) {
+      double tpFullDistance = MathAbs(currentSignal.tp_full - entryMid);
+      double tpFullPips = tpFullDistance / pipValue;
+      
+      string tpFullText = "TP Full: " + DoubleToString(currentSignal.tp_full, _Digits);
+      if(ShowPipsInfo) tpFullText += " | " + DoubleToString(tpFullPips, 1) + " pips";
+      if(ShowMoneyInfo && lotSize > 0) {
+         double tpFullMoney = CalculateMoneyAtPrice(Symbol(), lotSize, entryMid, currentSignal.tp_full, isBuy);
+         tpFullText += " | $" + DoubleToString(tpFullMoney, 2);
+      }
+      
+      ObjectDelete(0, "BBFX_TPFullLabel");
+      ObjectCreate(0, "BBFX_TPFullLabel", OBJ_TEXT, 0, timeEnd, currentSignal.tp_full);
+      ObjectSetString(0, "BBFX_TPFullLabel", OBJPROP_TEXT, tpFullText);
+      ObjectSetInteger(0, "BBFX_TPFullLabel", OBJPROP_COLOR, clrLime);
+      ObjectSetInteger(0, "BBFX_TPFullLabel", OBJPROP_FONTSIZE, FontSizeNormal);
+      ObjectSetInteger(0, "BBFX_TPFullLabel", OBJPROP_ANCHOR, ANCHOR_LEFT);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Calculate money at price level                                    |
+//+------------------------------------------------------------------+
+double CalculateMoneyAtPrice(string symbol, double lots, double entryPrice, double exitPrice, bool isBuy) {
+   double tickSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
+   double tickValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);
+   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+   
+   if(tickSize == 0 || tickValue == 0 || point == 0) return 0;
+   
+   double priceDiff = MathAbs(exitPrice - entryPrice);
+   double ticks = priceDiff / tickSize;
+   double profit = ticks * tickValue * lots;
+   
+   // Adjust for buy/sell direction
+   if((isBuy && exitPrice < entryPrice) || (!isBuy && exitPrice > entryPrice)) {
+      profit = -profit;
+   }
+   
+   return profit;
 }
 
 //+------------------------------------------------------------------+
@@ -545,28 +668,62 @@ double CalculateLotSize(string symbol, double stopLoss, bool isBuy) {
 //| Place trade                                                       |
 //+------------------------------------------------------------------+
 void PlaceTrade(string symbol, bool isBuy, double lots, double sl, double tp) {
-   double price = isBuy ? 
-      SymbolInfoDouble(symbol, SYMBOL_ASK) : 
-      SymbolInfoDouble(symbol, SYMBOL_BID);
-   
    int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
-   price = NormalizeDouble(price, digits);
+   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+   
+   double price;
+   
+   if(UseLimitOrders) {
+      // Use limit order at entry zone midpoint
+      double entryMid = (currentSignal.entry_min + currentSignal.entry_max) / 2;
+      price = NormalizeDouble(entryMid, digits);
+      
+      // For limit orders, adjust price slightly to account for slippage
+      if(isBuy) {
+         price = NormalizeDouble(price - (LimitOrderSlippage * point), digits);
+         orderType = ORDER_TYPE_BUY_LIMIT;
+      } else {
+         price = NormalizeDouble(price + (LimitOrderSlippage * point), digits);
+         orderType = ORDER_TYPE_SELL_LIMIT;
+      }
+   } else {
+      // Use market order at current price
+      price = isBuy ? 
+         SymbolInfoDouble(symbol, SYMBOL_ASK) : 
+         SymbolInfoDouble(symbol, SYMBOL_BID);
+      price = NormalizeDouble(price, digits);
+      orderType = isBuy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+   }
+   
    sl = NormalizeDouble(sl, digits);
    tp = NormalizeDouble(tp, digits);
    
    string comment = "BarbellFX|" + currentSignal.setup;
    if(StringLen(comment) > 31) comment = StringSubstr(comment, 0, 31);
    
-   bool success;
-   if(isBuy) {
-      success = trade.Buy(lots, symbol, price, sl, tp, comment);
+   bool success = false;
+   
+   if(UseLimitOrders) {
+      // Place limit order
+      datetime expiration = TimeCurrent() + PeriodSeconds(PERIOD_D1); // Expire in 1 day
+      if(isBuy) {
+         success = trade.BuyLimit(lots, price, symbol, sl, tp, ORDER_TIME_SPECIFIED, expiration, comment);
+      } else {
+         success = trade.SellLimit(lots, price, symbol, sl, tp, ORDER_TIME_SPECIFIED, expiration, comment);
+      }
    } else {
-      success = trade.Sell(lots, symbol, price, sl, tp, comment);
+      // Place market order
+      if(isBuy) {
+         success = trade.Buy(lots, symbol, price, sl, tp, comment);
+      } else {
+         success = trade.Sell(lots, symbol, price, sl, tp, comment);
+      }
    }
    
    if(success) {
       Print("=== TRADE OPENED ===");
       Print("Symbol: ", symbol);
+      Print("Type: ", UseLimitOrders ? "LIMIT" : "MARKET");
       Print("Direction: ", isBuy ? "BUY" : "SELL");
       Print("Lots: ", lots);
       Print("Price: ", price);
