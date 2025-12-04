@@ -337,6 +337,39 @@ void DrawLevels() {
       ObjectDelete(0, "BBFX_EntryZone");
    }
    
+   // Limit Order Price Line (if using limit orders)
+   if(UseLimitOrders) {
+      double limitPrice = 0;
+      double point = SymbolInfoDouble(Symbol(), SYMBOL_POINT);
+      int digits = (int)SymbolInfoInteger(Symbol(), SYMBOL_DIGITS);
+      
+      if(isBuy) {
+         limitPrice = NormalizeDouble(currentSignal.entry_min - (LimitOrderSlippage * point), digits);
+      } else {
+         limitPrice = NormalizeDouble(currentSignal.entry_max + (LimitOrderSlippage * point), digits);
+      }
+      
+      ObjectDelete(0, "BBFX_LimitOrderLine");
+      ObjectCreate(0, "BBFX_LimitOrderLine", OBJ_HLINE, 0, 0, limitPrice);
+      ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_COLOR, clrAqua);
+      ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_WIDTH, 2);
+      ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_STYLE, STYLE_DOT);
+      
+      // Label for limit order price
+      double labelOffset = LabelOffsetPips * pipValue;
+      double labelPrice = limitPrice + (isBuy ? labelOffset : -labelOffset);
+      
+      ObjectDelete(0, "BBFX_LimitOrderLabel");
+      ObjectCreate(0, "BBFX_LimitOrderLabel", OBJ_TEXT, 0, timeEnd, labelPrice);
+      ObjectSetString(0, "BBFX_LimitOrderLabel", OBJPROP_TEXT, "LIMIT: " + DoubleToString(limitPrice, _Digits));
+      ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_COLOR, clrAqua);
+      ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_FONTSIZE, ChartLabelFontSize);
+      ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_ANCHOR, ANCHOR_LEFT);
+   } else {
+      ObjectDelete(0, "BBFX_LimitOrderLine");
+      ObjectDelete(0, "BBFX_LimitOrderLabel");
+   }
+   
    // SL Line with info
    ObjectDelete(0, "BBFX_SLLine");
    ObjectCreate(0, "BBFX_SLLine", OBJ_HLINE, 0, 0, currentSignal.stop_loss);
@@ -661,10 +694,17 @@ void ProcessSignal() {
    
    // For limit orders: check if we already have a pending order for this signal
    if(UseLimitOrders) {
+      Print("=== PROCESSING LIMIT ORDER ===");
+      Print("Symbol: ", symbol);
+      Print("Direction: ", isBuy ? "BUY" : "SELL");
+      Print("Entry Zone: ", currentSignal.entry_min, " - ", currentSignal.entry_max);
+      Print("Current Price: ", currentPrice);
+      
       if(HasPendingOrder(symbol, isBuy)) {
          Print("Pending limit order already exists for this signal");
          return;
       }
+      Print("No pending order found - proceeding to place limit order...");
    }
    
    // Calculate lot size
@@ -673,6 +713,8 @@ void ProcessSignal() {
       Print("Invalid lot size calculated");
       return;
    }
+   
+   Print("Calculated lot size: ", lotSize);
    
    // Place trade
    PlaceTrade(symbol, isBuy, lotSize, currentSignal.stop_loss, currentSignal.tp_full);
@@ -765,15 +807,30 @@ void PlaceTrade(string symbol, bool isBuy, double lots, double sl, double tp) {
    double price;
    
    if(UseLimitOrders) {
-      // Use limit order at entry zone midpoint
-      double entryMid = (currentSignal.entry_min + currentSignal.entry_max) / 2;
-      price = NormalizeDouble(entryMid, digits);
-      
-      // For limit orders, adjust price slightly to account for slippage
+      // For limit orders:
+      // BUY limit: place at entry_min (or slightly below) - we buy when price drops to this level
+      // SELL limit: place at entry_max (or slightly above) - we sell when price rises to this level
       if(isBuy) {
-         price = NormalizeDouble(price - (LimitOrderSlippage * point), digits);
+         // BUY limit: place at entry_min, adjusted down by slippage
+         price = NormalizeDouble(currentSignal.entry_min - (LimitOrderSlippage * point), digits);
+         Print("BUY Limit Order - Entry Min: ", currentSignal.entry_min, ", Limit Price: ", price);
       } else {
-         price = NormalizeDouble(price + (LimitOrderSlippage * point), digits);
+         // SELL limit: place at entry_max, adjusted up by slippage
+         price = NormalizeDouble(currentSignal.entry_max + (LimitOrderSlippage * point), digits);
+         Print("SELL Limit Order - Entry Max: ", currentSignal.entry_max, ", Limit Price: ", price);
+      }
+      
+      // Validate limit order price
+      double currentBid = SymbolInfoDouble(symbol, SYMBOL_BID);
+      double currentAsk = SymbolInfoDouble(symbol, SYMBOL_ASK);
+      
+      if(isBuy && price >= currentAsk) {
+         Print("WARNING: BUY limit price (", price, ") >= current Ask (", currentAsk, "). Adjusting to entry_min.");
+         price = NormalizeDouble(currentSignal.entry_min, digits);
+      }
+      if(!isBuy && price <= currentBid) {
+         Print("WARNING: SELL limit price (", price, ") <= current Bid (", currentBid, "). Adjusting to entry_max.");
+         price = NormalizeDouble(currentSignal.entry_max, digits);
       }
    } else {
       // Use market order at current price
@@ -819,10 +876,16 @@ void PlaceTrade(string symbol, bool isBuy, double lots, double sl, double tp) {
       Print("TP: ", tp);
       Print("====================");
       
-      // Mark signal as processed
-      ResetSignal();
+      // For market orders: reset signal immediately (trade is executed)
+      // For limit orders: keep signal active (order is pending, signal should stay visible)
+      if(!UseLimitOrders) {
+         ResetSignal();
+      } else {
+         Print("Limit order placed - keeping signal active until order executes");
+      }
    } else {
       Print("Trade failed: ", trade.ResultRetcode(), " - ", trade.ResultRetcodeDescription());
+      Print("Error details: ", trade.ResultRetcode(), " - ", trade.ResultRetcodeDescription());
    }
 }
 
@@ -903,19 +966,18 @@ bool HasOpenPosition(string pair) {
 //+------------------------------------------------------------------+
 bool HasPendingOrder(string symbol, bool isBuy) {
    for(int i = OrdersTotal() - 1; i >= 0; i--) {
-      ulong ticket = OrderGetTicket(i);
-      if(ticket > 0) {
-         if(orderInfo.SelectByIndex(i)) {
-            if(orderInfo.Magic() == MagicNumber) {
-               if(SymbolMatches(orderInfo.Symbol(), symbol)) {
-                  ENUM_ORDER_TYPE orderType = (ENUM_ORDER_TYPE)orderInfo.OrderType();
-                  // Check if it's a limit order matching our direction
-                  if(isBuy && (orderType == ORDER_TYPE_BUY_LIMIT || orderType == ORDER_TYPE_BUY_STOP)) {
-                     return true;
-                  }
-                  if(!isBuy && (orderType == ORDER_TYPE_SELL_LIMIT || orderType == ORDER_TYPE_SELL_STOP)) {
-                     return true;
-                  }
+      if(orderInfo.SelectByIndex(i)) {
+         if(orderInfo.Magic() == MagicNumber) {
+            if(SymbolMatches(orderInfo.Symbol(), symbol)) {
+               ENUM_ORDER_TYPE orderType = (ENUM_ORDER_TYPE)orderInfo.OrderType();
+               // Check if it's a limit order matching our direction
+               if(isBuy && (orderType == ORDER_TYPE_BUY_LIMIT || orderType == ORDER_TYPE_BUY_STOP)) {
+                  Print("Found existing BUY limit order: Ticket ", orderInfo.Ticket(), " at price ", orderInfo.PriceOpen());
+                  return true;
+               }
+               if(!isBuy && (orderType == ORDER_TYPE_SELL_LIMIT || orderType == ORDER_TYPE_SELL_STOP)) {
+                  Print("Found existing SELL limit order: Ticket ", orderInfo.Ticket(), " at price ", orderInfo.PriceOpen());
+                  return true;
                }
             }
          }
