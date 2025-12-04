@@ -88,6 +88,7 @@ input int      LimitOrderSlippage = 5;        // Limit order slippage (points)
 //+------------------------------------------------------------------+
 CTrade         trade;
 CPositionInfo  positionInfo;
+COrderInfo     orderInfo;
 datetime       lastFetchTime = 0;
 datetime       signalReceiveTime = 0;  // When we received the current signal
 string         lastSignalId = "";
@@ -645,14 +646,25 @@ void ProcessSignal() {
       return;
    }
    
-   // Check if price is in entry zone
+   // Check price position relative to entry zone
    double bid = SymbolInfoDouble(symbol, SYMBOL_BID);
    double ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
    double currentPrice = isBuy ? ask : bid;
+   bool priceInZone = (currentPrice >= currentSignal.entry_min && currentPrice <= currentSignal.entry_max);
    
-   if(currentPrice < currentSignal.entry_min || currentPrice > currentSignal.entry_max) {
-      // Price not in entry zone - wait
+   // For market orders: only place when price is in entry zone
+   // For limit orders: place immediately (order will execute when price reaches zone)
+   if(!UseLimitOrders && !priceInZone) {
+      // Market order: price not in entry zone - wait
       return;
+   }
+   
+   // For limit orders: check if we already have a pending order for this signal
+   if(UseLimitOrders) {
+      if(HasPendingOrder(symbol, isBuy)) {
+         Print("Pending limit order already exists for this signal");
+         return;
+      }
    }
    
    // Calculate lot size
@@ -879,6 +891,32 @@ bool HasOpenPosition(string pair) {
          if(positionInfo.Magic() == MagicNumber) {
             if(SymbolMatches(positionInfo.Symbol(), pair)) {
                return true;
+            }
+         }
+      }
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
+//| Check if pending order exists for symbol and direction            |
+//+------------------------------------------------------------------+
+bool HasPendingOrder(string symbol, bool isBuy) {
+   for(int i = OrdersTotal() - 1; i >= 0; i--) {
+      ulong ticket = OrderGetTicket(i);
+      if(ticket > 0) {
+         if(orderInfo.SelectByIndex(i)) {
+            if(orderInfo.Magic() == MagicNumber) {
+               if(SymbolMatches(orderInfo.Symbol(), symbol)) {
+                  ENUM_ORDER_TYPE orderType = (ENUM_ORDER_TYPE)orderInfo.OrderType();
+                  // Check if it's a limit order matching our direction
+                  if(isBuy && (orderType == ORDER_TYPE_BUY_LIMIT || orderType == ORDER_TYPE_BUY_STOP)) {
+                     return true;
+                  }
+                  if(!isBuy && (orderType == ORDER_TYPE_SELL_LIMIT || orderType == ORDER_TYPE_SELL_STOP)) {
+                     return true;
+                  }
+               }
             }
          }
       }
