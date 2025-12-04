@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2024, BarbellFX"
 #property link      "https://barbellfx.com"
-#property version   "1.00"
+#property version   "2.00"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -77,6 +77,10 @@ input ENUM_LINE_STYLE TP1LineStyle = STYLE_DASH;  // TP1 line style
 input color    TPFullLineColor = clrLime;     // Full TP line color
 input int      TPFullLineWidth = 2;           // Full TP line width
 input ENUM_LINE_STYLE TPFullLineStyle = STYLE_SOLID;  // Full TP line style
+input color    LimitOrderLineColor = clrAqua; // Limit order line color
+input int      LimitOrderLineWidth = 2;       // Limit order line width
+input ENUM_LINE_STYLE LimitOrderLineStyle = STYLE_DOT;  // Limit order line style
+input bool     ShowLimitOrderLine = true;     // Show limit order price line
 
 // Order Type
 input group "=== Order Settings ==="
@@ -353,7 +357,7 @@ void DrawLevels() {
    }
    
    // Limit Order Price Line (if using limit orders)
-   if(UseLimitOrders && currentSignal.valid) {
+   if(UseLimitOrders && ShowLimitOrderLine && currentSignal.valid) {
       double limitPrice = 0;
       
       if(isBuy) {
@@ -366,9 +370,9 @@ void DrawLevels() {
       if(limitPrice > 0) {
          ObjectDelete(0, "BBFX_LimitOrderLine");
          ObjectCreate(0, "BBFX_LimitOrderLine", OBJ_HLINE, 0, 0, limitPrice);
-         ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_COLOR, clrAqua);
-         ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_WIDTH, 2);
-         ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_STYLE, STYLE_DOT);
+         ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_COLOR, LimitOrderLineColor);
+         ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_WIDTH, LimitOrderLineWidth);
+         ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_STYLE, LimitOrderLineStyle);
          
          // Label for limit order price
          double labelOffset = LabelOffsetPips * pipValue;
@@ -377,7 +381,7 @@ void DrawLevels() {
          ObjectDelete(0, "BBFX_LimitOrderLabel");
          ObjectCreate(0, "BBFX_LimitOrderLabel", OBJ_TEXT, 0, timeEnd, labelPrice);
          ObjectSetString(0, "BBFX_LimitOrderLabel", OBJPROP_TEXT, "LIMIT: " + DoubleToString(limitPrice, _Digits));
-         ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_COLOR, clrAqua);
+         ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_COLOR, LimitOrderLineColor);
          ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_FONTSIZE, ChartLabelFontSize);
          ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_ANCHOR, ANCHOR_LEFT);
       } else {
