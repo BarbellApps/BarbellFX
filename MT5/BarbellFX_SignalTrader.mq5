@@ -312,6 +312,21 @@ void DrawLabel(string name, int x, int y, string text, color clr, int fontSize, 
 //| Draw entry zone and SL/TP levels on chart                         |
 //+------------------------------------------------------------------+
 void DrawLevels() {
+   // Validate signal before drawing
+   if(!currentSignal.valid || currentSignal.entry_min <= 0 || currentSignal.entry_max <= 0) {
+      // Clear all objects if signal is invalid
+      ObjectDelete(0, "BBFX_EntryZone");
+      ObjectDelete(0, "BBFX_LimitOrderLine");
+      ObjectDelete(0, "BBFX_LimitOrderLabel");
+      ObjectDelete(0, "BBFX_SLLine");
+      ObjectDelete(0, "BBFX_SLLabel");
+      ObjectDelete(0, "BBFX_TP1Line");
+      ObjectDelete(0, "BBFX_TP1Label");
+      ObjectDelete(0, "BBFX_TPFullLine");
+      ObjectDelete(0, "BBFX_TPFullLabel");
+      return;
+   }
+   
    datetime timeStart = iTime(Symbol(), PERIOD_CURRENT, 50);
    datetime timeEnd = iTime(Symbol(), PERIOD_CURRENT, 0) + PeriodSeconds() * 20;
    
@@ -338,10 +353,8 @@ void DrawLevels() {
    }
    
    // Limit Order Price Line (if using limit orders)
-   if(UseLimitOrders) {
+   if(UseLimitOrders && currentSignal.valid) {
       double limitPrice = 0;
-      double point = SymbolInfoDouble(Symbol(), SYMBOL_POINT);
-      int digits = (int)SymbolInfoInteger(Symbol(), SYMBOL_DIGITS);
       
       if(isBuy) {
          limitPrice = NormalizeDouble(currentSignal.entry_min - (LimitOrderSlippage * point), digits);
@@ -349,22 +362,28 @@ void DrawLevels() {
          limitPrice = NormalizeDouble(currentSignal.entry_max + (LimitOrderSlippage * point), digits);
       }
       
-      ObjectDelete(0, "BBFX_LimitOrderLine");
-      ObjectCreate(0, "BBFX_LimitOrderLine", OBJ_HLINE, 0, 0, limitPrice);
-      ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_COLOR, clrAqua);
-      ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_WIDTH, 2);
-      ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_STYLE, STYLE_DOT);
-      
-      // Label for limit order price
-      double labelOffset = LabelOffsetPips * pipValue;
-      double labelPrice = limitPrice + (isBuy ? labelOffset : -labelOffset);
-      
-      ObjectDelete(0, "BBFX_LimitOrderLabel");
-      ObjectCreate(0, "BBFX_LimitOrderLabel", OBJ_TEXT, 0, timeEnd, labelPrice);
-      ObjectSetString(0, "BBFX_LimitOrderLabel", OBJPROP_TEXT, "LIMIT: " + DoubleToString(limitPrice, _Digits));
-      ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_COLOR, clrAqua);
-      ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_FONTSIZE, ChartLabelFontSize);
-      ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_ANCHOR, ANCHOR_LEFT);
+      // Validate limit price
+      if(limitPrice > 0) {
+         ObjectDelete(0, "BBFX_LimitOrderLine");
+         ObjectCreate(0, "BBFX_LimitOrderLine", OBJ_HLINE, 0, 0, limitPrice);
+         ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_COLOR, clrAqua);
+         ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_WIDTH, 2);
+         ObjectSetInteger(0, "BBFX_LimitOrderLine", OBJPROP_STYLE, STYLE_DOT);
+         
+         // Label for limit order price
+         double labelOffset = LabelOffsetPips * pipValue;
+         double labelPrice = limitPrice + (isBuy ? labelOffset : -labelOffset);
+         
+         ObjectDelete(0, "BBFX_LimitOrderLabel");
+         ObjectCreate(0, "BBFX_LimitOrderLabel", OBJ_TEXT, 0, timeEnd, labelPrice);
+         ObjectSetString(0, "BBFX_LimitOrderLabel", OBJPROP_TEXT, "LIMIT: " + DoubleToString(limitPrice, _Digits));
+         ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_COLOR, clrAqua);
+         ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_FONTSIZE, ChartLabelFontSize);
+         ObjectSetInteger(0, "BBFX_LimitOrderLabel", OBJPROP_ANCHOR, ANCHOR_LEFT);
+      } else {
+         ObjectDelete(0, "BBFX_LimitOrderLine");
+         ObjectDelete(0, "BBFX_LimitOrderLabel");
+      }
    } else {
       ObjectDelete(0, "BBFX_LimitOrderLine");
       ObjectDelete(0, "BBFX_LimitOrderLabel");
@@ -498,7 +517,8 @@ void OnTick() {
       lastFetchTime = TimeCurrent();
    }
    
-   // Update visual panel
+   // Update visual panel (always try to draw, even if signal invalid)
+   // DrawPanel will call DrawLevels if symbol matches
    DrawPanel();
    
    // Process current signal
@@ -849,12 +869,42 @@ void PlaceTrade(string symbol, bool isBuy, double lots, double sl, double tp) {
    bool success = false;
    
    if(UseLimitOrders) {
-      // Place limit order
-      datetime expiration = TimeCurrent() + (datetime)PeriodSeconds(PERIOD_D1); // Expire in 1 day
+      // Validate price before placing order
+      if(price <= 0) {
+         Print("ERROR: Invalid limit order price: ", price);
+         return;
+      }
+      
+      Print("Placing limit order - Price: ", price, ", SL: ", sl, ", TP: ", tp, ", Lots: ", lots);
+      
       if(isBuy) {
-         success = trade.BuyLimit(lots, price, symbol, sl, tp, ORDER_TIME_SPECIFIED, expiration, comment);
+         // BUY Limit: price must be below current Ask
+         double currentAsk = SymbolInfoDouble(symbol, SYMBOL_ASK);
+         if(price >= currentAsk) {
+            Print("ERROR: BUY limit price (", price, ") must be below current Ask (", currentAsk, ")");
+            Print("Adjusting limit price to entry_min");
+            price = NormalizeDouble(currentSignal.entry_min, digits);
+            if(price >= currentAsk) {
+               Print("ERROR: Even entry_min (", price, ") is >= Ask. Cannot place BUY limit.");
+               return;
+            }
+         }
+         // Use ORDER_TIME_GTC (Good Till Canceled) - order stays until filled or manually deleted
+         success = trade.BuyLimit(lots, price, symbol, sl, tp, ORDER_TIME_GTC, 0, comment);
       } else {
-         success = trade.SellLimit(lots, price, symbol, sl, tp, ORDER_TIME_SPECIFIED, expiration, comment);
+         // SELL Limit: price must be above current Bid
+         double currentBid = SymbolInfoDouble(symbol, SYMBOL_BID);
+         if(price <= currentBid) {
+            Print("ERROR: SELL limit price (", price, ") must be above current Bid (", currentBid, ")");
+            Print("Adjusting limit price to entry_max");
+            price = NormalizeDouble(currentSignal.entry_max, digits);
+            if(price <= currentBid) {
+               Print("ERROR: Even entry_max (", price, ") is <= Bid. Cannot place SELL limit.");
+               return;
+            }
+         }
+         // Use ORDER_TIME_GTC (Good Till Canceled) - order stays until filled or manually deleted
+         success = trade.SellLimit(lots, price, symbol, sl, tp, ORDER_TIME_GTC, 0, comment);
       }
    } else {
       // Place market order
@@ -884,8 +934,21 @@ void PlaceTrade(string symbol, bool isBuy, double lots, double sl, double tp) {
          Print("Limit order placed - keeping signal active until order executes");
       }
    } else {
-      Print("Trade failed: ", trade.ResultRetcode(), " - ", trade.ResultRetcodeDescription());
-      Print("Error details: ", trade.ResultRetcode(), " - ", trade.ResultRetcodeDescription());
+      int errorCode = trade.ResultRetcode();
+      string errorDesc = trade.ResultRetcodeDescription();
+      Print("========================================");
+      Print("TRADE FAILED!");
+      Print("Error Code: ", errorCode);
+      Print("Error Description: ", errorDesc);
+      Print("Symbol: ", symbol);
+      Print("Type: ", UseLimitOrders ? "LIMIT" : "MARKET");
+      Print("Direction: ", isBuy ? "BUY" : "SELL");
+      Print("Price: ", price);
+      Print("Lots: ", lots);
+      Print("========================================");
+      
+      // Don't reset signal on failure - keep it visible so user can see the issue
+      // Signal will be cleared when a new signal arrives or manually
    }
 }
 
