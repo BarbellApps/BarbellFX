@@ -84,21 +84,34 @@ riskUSD = input.float(200, "Risk per trade ($)", minval=1, group=grpR, tooltip="
 grpD = "Display & alerts"
 showTbl     = input.bool(true, "Stats table", group=grpD)
 showTrades  = input.bool(true, "Trade lines (entry / stop / target)", group=grpD)
-lvlLabels   = input.bool(true, "Level labels", group=grpD)
+lvlLabels   = input.bool(true, "Level labels", group=grpD, inline="lvl")
+lvlSizeS    = input.string("Small", "size", options=["Tiny", "Small", "Normal", "Large", "Huge"], group=grpD, inline="lvl")
+sigSizeS    = input.string("Small", "Signal / result label size", options=["Tiny", "Small", "Normal", "Large", "Huge"], group=grpD)
 alertLevels = input.bool(false, "Alert when price touches a key level", group=grpD)
 
-// Colors
-cPD   = color.new(color.white, 0)
-cPW   = color.new(#b388ff, 0)
-cPS   = color.new(#26c6da, 0)
-cPOC  = color.new(#ffd600, 0)
-cLon  = color.new(#ff8a65, 0)
-cIB   = color.new(#2962ff, 0)
-cIBM  = color.new(#82b1ff, 0)
-cNYVW = color.new(#4fc3f7, 0)
-cSVW  = color.new(#f06292, 0)
-cWVW  = color.new(color.gray, 0)
-cAR   = color.new(#ffa726, 0)
+f_size(string s) =>
+    switch s
+        "Tiny"   => size.tiny
+        "Small"  => size.small
+        "Normal" => size.normal
+        "Large"  => size.large
+        => size.huge
+lvlSize = f_size(lvlSizeS)
+sigSize = f_size(sigSizeS)
+
+// Colors: one input per level. Lines and their labels both use these, so they always match.
+grpC = "Level colors"
+cPD   = input.color(color.white, "Previous day H / L", group=grpC)
+cPW   = input.color(#b388ff, "Prev week VAH / VAL", group=grpC)
+cPS   = input.color(#26c6da, "Prev session VAH / VAL", group=grpC)
+cPOC  = input.color(#ffd600, "POC (week + session)", group=grpC)
+cLon  = input.color(#ff8a65, "London H / L", group=grpC)
+cIB   = input.color(#2962ff, "IB high / low", group=grpC)
+cIBM  = input.color(#82b1ff, "IB mid", group=grpC)
+cNYVW = input.color(#4fc3f7, "NY anchored VWAP", group=grpC)
+cSVW  = input.color(#f06292, "Session VWAP", group=grpC)
+cWVW  = input.color(color.gray, "Weekly VWAP", group=grpC)
+cAR   = input.color(#ffa726, "Asia pre-Tokyo range", group=grpC)
 
 // ───────────────────────────── Helpers ─────────────────────────────
 inSess(string s) => not na(time(timeframe.period, s, TZ))
@@ -557,7 +570,7 @@ if tDir != 0 and barstate.isconfirmed and bar_index > tBar
             lnE.set_x2(bar_index)
             lnS.set_x2(bar_index)
             lnT.set_x2(bar_index)
-            label.new(bar_index, tDir == 1 ? high : low, (r >= 0 ? "+" : "") + str.tostring(r, "#.##") + "R " + how, style=tDir == 1 ? label.style_label_down : label.style_label_up, color=color(na), textcolor=r > 0 ? color.lime : color.red, size=size.small)
+            label.new(bar_index, tDir == 1 ? high : low, (r >= 0 ? "+" : "") + str.tostring(r, "#.##") + "R " + how, style=tDir == 1 ? label.style_label_down : label.style_label_up, color=color(na), textcolor=r > 0 ? color.lime : color.red, size=sigSize)
         alert(syminfo.ticker + " " + array.get(SETUP_NAMES, tSetup) + " closed at " + how + ": " + str.tostring(r, "#.##") + "R", alert.freq_once_per_bar_close)
         tDir := 0
 
@@ -671,7 +684,7 @@ if cDir != 0
         string grade = nC >= 2 ? "A+" : nC == 1 ? "A" : "B"
         float qty = riskUSD / (risk * syminfo.pointvalue)
         string txt = str.upper(array.get(SETUP_NAMES, cSetup)) + (cDir == 1 ? " ▲ LONG " : " ▼ SHORT ") + grade + "\nEntry " + str.tostring(close, format.mintick) + "  SL " + str.tostring(cStop, format.mintick) + "  TP " + str.tostring(cTgt, format.mintick) + "\n" + str.tostring(rr, "#.#") + "R · " + str.tostring(qty, "#.#") + " ct = $" + str.tostring(riskUSD, "#") + (sC != "" ? "\n+ " + sC : "")
-        label.new(bar_index, cDir == 1 ? low : high, txt, style=cDir == 1 ? label.style_label_up : label.style_label_down, color=cDir == 1 ? color.new(color.teal, 10) : color.new(color.maroon, 10), textcolor=color.white, size=size.small, textalign=text.align_left)
+        label.new(bar_index, cDir == 1 ? low : high, txt, style=cDir == 1 ? label.style_label_up : label.style_label_down, color=cDir == 1 ? color.new(color.teal, 10) : color.new(color.maroon, 10), textcolor=color.white, size=sigSize, textalign=text.align_left)
         if showTrades
             lnE := line.new(bar_index, close, bar_index, close, color=color.gray, width=1)
             lnS := line.new(bar_index, cStop, bar_index, cStop, color=color.red, width=1, style=line.style_dashed)
@@ -721,7 +734,7 @@ plot(f_brk(arShowL), "Asia range L", cAR, 2, plot.style_linebr)
 var array<label> lvLbl = array.new<label>()
 f_lb(float y, string t, color c) =>
     if not na(y)
-        lvLbl.push(label.new(bar_index + 2, y, t, style=label.style_label_left, color=color(na), textcolor=c, size=size.small))
+        lvLbl.push(label.new(bar_index + 2, y, t, style=label.style_label_left, color=color(na), textcolor=c, size=lvlSize))
     0
 
 if barstate.islast and lvlLabels
@@ -742,6 +755,8 @@ if barstate.islast and lvlLabels
     f_lb(ibShowM, "IB mid", cIBM)
     f_lb(ibShowL, "IB L", cIB)
     f_lb(nyVWd, "NY VWAP", cNYVW)
+    f_lb(sVWd, "Sess VWAP", cSVW)
+    f_lb(wVWd, "Wk VWAP", cWVW)
     f_lb(arShowH, "Asia H", cAR)
     f_lb(arShowL, "Asia L", cAR)
 
