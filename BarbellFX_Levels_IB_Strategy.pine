@@ -108,11 +108,11 @@ grpC = "Line colors (labels follow)"
 cPD   = input.color(#212121, "Previous day H / L", group=grpC)
 cPW   = input.color(#6a1b9a, "Prev week VAH / VAL", group=grpC)
 cPS   = input.color(#00838f, "Prev session VAH / VAL", group=grpC)
-cPOC  = input.color(#f57f17, "POC (week + session)", group=grpC)
-cLon  = input.color(#bf360c, "London H / L", group=grpC)
+cPOC  = input.color(#b8860b, "POC (week + session)", group=grpC)
+cLon  = input.color(#6d4c41, "London H / L", group=grpC)
 cIB   = input.color(#0d47a1, "IB high / low", group=grpC)
-cIBM  = input.color(#283593, "IB mid", group=grpC)
-cNYVW = input.color(#01579b, "NY anchored VWAP", group=grpC)
+cIBM  = input.color(#3949ab, "IB mid", group=grpC)
+cNYVW = input.color(#1b5e20, "NY anchored VWAP", group=grpC)
 cSVW  = input.color(#ad1457, "Session VWAP", group=grpC)
 cWVW  = input.color(#424242, "Weekly VWAP", group=grpC)
 cAR   = input.color(#e65100, "Asia pre-Tokyo range", group=grpC)
@@ -385,9 +385,10 @@ psP   = showPS ? psPOC : na
 psL   = showPS ? psVAL : na
 lnH   = showLon and lonValid ? lonH : na
 lnL   = showLon and lonValid ? lonL : na
-nyVWd = showNYVW ? nyVW : na
-sVWd  = showSVW ? sVW : na
-wVWd  = showWVW ? wVW : na
+// Shown only inside their own period and na on the reset bar, so the line never draws a vertical jump at the anchor.
+nyVWd = showNYVW and inRTH ? nyVW : na
+sVWd  = showSVW and not newDay ? sVW : na
+wVWd  = showWVW and not newWeek ? wVW : na
 
 // ───────────────────────────── Supply / demand ─────────────────────────────
 [sdBull, sdBear, sdTop, sdBot, sdT] = request.security(syminfo.tickerid, sdTF, f_sdSrc(), lookahead=barmerge.lookahead_on)
@@ -431,9 +432,14 @@ var float ibH = na
 var float ibL = na
 var float ibO = na
 var float ibMid = na
+var int   ibStartBar = na
+var line  ibHiLn = na
+var line  ibLoLn = na
+var line  ibMidLn = na
 var bool  ibDone = false
 var int   ibBias = 0
 if ibStart
+    ibStartBar := bar_index
     ibH := high
     ibL := low
     ibO := open
@@ -448,6 +454,15 @@ if ibEndB and not na(ibH)
     ibMid := (ibH + ibL) / 2
     float ibC = close[1]
     ibBias := ibC > ibMid and ibC > ibO ? 1 : ibC < ibMid and ibC < ibO ? -1 : 0
+    // Draw the finished IB once, starting back at 09:30, instead of stepping while it forms.
+    if showIB
+        ibHiLn  := line.new(ibStartBar, ibH, bar_index, ibH, color=cIB, width=lwThick)
+        ibLoLn  := line.new(ibStartBar, ibL, bar_index, ibL, color=cIB, width=lwThick)
+        ibMidLn := line.new(ibStartBar, ibMid, bar_index, ibMid, color=cIBM, width=lwThin, style=line.style_dashed)
+else if ibDone and inRTH and not na(ibHiLn)
+    ibHiLn.set_x2(bar_index)
+    ibLoLn.set_x2(bar_index)
+    ibMidLn.set_x2(bar_index)
 
 // ───────────────────────────── Asia pre-Tokyo range ─────────────────────────────
 inAR    = inSess(arSess)
@@ -711,9 +726,10 @@ if alertLevels and barstate.isconfirmed
             alert(syminfo.ticker + " at " + lvNames.get(i) + " " + str.tostring(v, format.mintick), alert.freq_once_per_bar_close)
 
 // ───────────────────────────── Plots ─────────────────────────────
-ibShowH = showIB and inRTH and not na(ibH) ? ibH : na
-ibShowL = showIB and inRTH and not na(ibL) ? ibL : na
-ibShowM = showIB and inRTH and not na(ibH) ? (ibDone ? ibMid : (ibH + ibL) / 2) : na
+// IB is drawn with line objects (see Initial balance). These only feed the last-bar labels.
+ibShowH = showIB and inRTH and ibDone ? ibH : na
+ibShowL = showIB and inRTH and ibDone ? ibL : na
+ibShowM = showIB and inRTH and ibDone ? ibMid : na
 arShowH = showAR and inAsiaFlat and (arDone or inAR) ? arH : na
 arShowL = showAR and inAsiaFlat and (arDone or inAR) ? arL : na
 
@@ -727,9 +743,6 @@ plot(f_brk(psP), "PS POC", cPOC, lwThin, plot.style_linebr, editable=false)
 plot(f_brk(psL), "PS VAL", cPS, lwThin, plot.style_linebr, editable=false)
 plot(f_brk(lnH), "London H", cLon, lwThin, plot.style_linebr, editable=false)
 plot(f_brk(lnL), "London L", cLon, lwThin, plot.style_linebr, editable=false)
-plot(f_brk(ibShowH), "IB High", cIB, lwThick, plot.style_linebr, editable=false)
-plot(ibShowM, "IB Mid", cIBM, lwThin, plot.style_circles, editable=false)
-plot(f_brk(ibShowL), "IB Low", cIB, lwThick, plot.style_linebr, editable=false)
 plot(nyVWd, "NY AVWAP", cNYVW, lwThick, plot.style_linebr, editable=false)
 plot(sVWd, "Session VWAP", cSVW, lwThin, plot.style_linebr, editable=false)
 plot(wVWd, "Weekly VWAP", cWVW, lwThin, plot.style_linebr, editable=false)
