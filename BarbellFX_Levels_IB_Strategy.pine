@@ -89,6 +89,7 @@ showTbl     = input.bool(true, "Stats table", group=grpD)
 showTrades  = input.bool(true, "Trade lines (entry / stop / target)", group=grpD)
 lvlLabels   = input.bool(true, "Level labels", group=grpD, inline="lvl")
 lvlSizeS    = input.string("Small", "size", options=["Tiny", "Small", "Normal", "Large", "Huge"], group=grpD, inline="lvl")
+sigMode     = input.string("Compact", "Signal labels", options=["Compact", "Full", "Off"], group=grpD, tooltip="Compact: a short tag above / below the candle. Hover it for entry, stop, target, size and confluences. Full: all details on the chart.")
 sigSizeS    = input.string("Small", "Signal / result label size", options=["Tiny", "Small", "Normal", "Large", "Huge"], group=grpD)
 alertLevels = input.bool(false, "Alert when price touches a key level", group=grpD)
 
@@ -519,6 +520,7 @@ f_conf(float lo, float hi) =>
 
 // ───────────────────────────── Trade simulation ─────────────────────────────
 SETUP_NAMES = array.from("IB failed auction", "IB continuation", "Asia sweep", "Asia breakout", "A+ only")
+SETUP_TAGS  = array.from("IB FA", "IB TC", "AS SW", "AS BR", "A+")
 var array<int>   stN = array.new_int(5, 0)
 var array<int>   stW = array.new_int(5, 0)
 var array<float> stR = array.new_float(5, 0.0)
@@ -591,7 +593,10 @@ if tDir != 0 and barstate.isconfirmed and bar_index > tBar
             lnE.set_x2(bar_index)
             lnS.set_x2(bar_index)
             lnT.set_x2(bar_index)
-            label.new(bar_index, tDir == 1 ? high : low, (r >= 0 ? "+" : "") + str.tostring(r, "#.##") + "R " + how, style=tDir == 1 ? label.style_label_down : label.style_label_up, color=color(na), textcolor=r > 0 ? color.lime : color.red, size=sigSize)
+            if sigMode != "Off"
+                bool above = tDir == 1
+                string rTxt = (r >= 0 ? "+" : "") + str.tostring(r, "#.#") + "R"
+                label.new(bar_index, above ? high + 0.4 * atr : low - 0.4 * atr, rTxt, style=above ? label.style_label_down : label.style_label_up, color=r > 0 ? color.new(#1b5e20, 15) : color.new(#b71c1c, 15), textcolor=color.white, size=sigSize, tooltip=array.get(SETUP_NAMES, tSetup) + " closed at " + how + ": " + rTxt)
         alert(syminfo.ticker + " " + array.get(SETUP_NAMES, tSetup) + " closed at " + how + ": " + str.tostring(r, "#.##") + "R", alert.freq_once_per_bar_close)
         tDir := 0
 
@@ -705,7 +710,11 @@ if cDir != 0
         string grade = nC >= 2 ? "A+" : nC == 1 ? "A" : "B"
         float qty = riskUSD / (risk * syminfo.pointvalue)
         string txt = str.upper(array.get(SETUP_NAMES, cSetup)) + (cDir == 1 ? " ▲ LONG " : " ▼ SHORT ") + grade + "\nEntry " + str.tostring(close, format.mintick) + "  SL " + str.tostring(cStop, format.mintick) + "  TP " + str.tostring(cTgt, format.mintick) + "\n" + str.tostring(rr, "#.#") + "R · " + str.tostring(qty, "#.#") + " ct = $" + str.tostring(riskUSD, "#") + (sC != "" ? "\n+ " + sC : "")
-        label.new(bar_index, cDir == 1 ? low : high, txt, style=cDir == 1 ? label.style_label_up : label.style_label_down, color=cDir == 1 ? color.new(color.teal, 10) : color.new(color.maroon, 10), textcolor=color.white, size=sigSize, textalign=text.align_left)
+        if sigMode != "Off"
+            // Sits clear of the candle (0.6 ATR beyond its wick) so it doesn't cover price.
+            float yLbl = cDir == 1 ? low - 0.6 * atr : high + 0.6 * atr
+            string shortTxt = (cDir == 1 ? "▲ " : "▼ ") + array.get(SETUP_TAGS, cSetup) + " " + grade
+            label.new(bar_index, yLbl, sigMode == "Full" ? txt : shortTxt, style=cDir == 1 ? label.style_label_up : label.style_label_down, color=cDir == 1 ? color.new(color.teal, 15) : color.new(color.maroon, 15), textcolor=color.white, size=sigSize, textalign=text.align_left, tooltip=txt)
         if showTrades
             lnE := line.new(bar_index, close, bar_index, close, color=color.gray, width=1)
             lnS := line.new(bar_index, cStop, bar_index, cStop, color=color.red, width=1, style=line.style_dashed)
