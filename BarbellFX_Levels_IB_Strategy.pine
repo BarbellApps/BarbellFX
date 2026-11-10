@@ -49,6 +49,9 @@ arSess    = input.session("1800-2000", "Asia pre-Tokyo range", group=grpS)
 asiaTrade = input.session("2000-0200", "Asia setup window", group=grpS)
 asiaFlat  = input.session("1800-0300", "Asia trades closed outside", group=grpS)
 
+showIB   = input.bool(true, "Show initial balance lines", group=grpS)
+showAR   = input.bool(true, "Show Asia range lines", group=grpS)
+
 grpVW = "VWAP"
 showNYVW = input.bool(true, "NY anchored VWAP (09:30)", group=grpVW)
 showSVW  = input.bool(true, "Session VWAP (18:00)", group=grpVW)
@@ -99,8 +102,9 @@ f_size(string s) =>
 lvlSize = f_size(lvlSizeS)
 sigSize = f_size(sigSizeS)
 
-// Colors: one input per level. Lines and their labels both use these, so they always match.
-grpC = "Level colors"
+// Line colors. Each level's label uses its line's color. The plots are locked in the Style tab
+// (Pine can't read a color changed there), so these inputs are the single place to set line + label color.
+grpC = "Line colors (labels follow)"
 cPD   = input.color(color.white, "Previous day H / L", group=grpC)
 cPW   = input.color(#b388ff, "Prev week VAH / VAL", group=grpC)
 cPS   = input.color(#26c6da, "Prev session VAH / VAL", group=grpC)
@@ -112,6 +116,8 @@ cNYVW = input.color(#4fc3f7, "NY anchored VWAP", group=grpC)
 cSVW  = input.color(#f06292, "Session VWAP", group=grpC)
 cWVW  = input.color(color.gray, "Weekly VWAP", group=grpC)
 cAR   = input.color(#ffa726, "Asia pre-Tokyo range", group=grpC)
+lwThin  = input.int(1, "Line width: levels", minval=1, maxval=4, group=grpC, inline="w")
+lwThick = input.int(2, "key", minval=1, maxval=4, group=grpC, inline="w", tooltip="Levels: PDH / PDL, previous session, London, session / weekly VWAP, IB mid. Key: previous week, IB high / low, NY VWAP, Asia range.")
 
 // ───────────────────────────── Helpers ─────────────────────────────
 inSess(string s) => not na(time(timeframe.period, s, TZ))
@@ -705,30 +711,30 @@ if alertLevels and barstate.isconfirmed
             alert(syminfo.ticker + " at " + lvNames.get(i) + " " + str.tostring(v, format.mintick), alert.freq_once_per_bar_close)
 
 // ───────────────────────────── Plots ─────────────────────────────
-ibShowH = inRTH and not na(ibH) ? ibH : na
-ibShowL = inRTH and not na(ibL) ? ibL : na
-ibShowM = inRTH and not na(ibH) ? (ibDone ? ibMid : (ibH + ibL) / 2) : na
-arShowH = inAsiaFlat and (arDone or inAR) ? arH : na
-arShowL = inAsiaFlat and (arDone or inAR) ? arL : na
+ibShowH = showIB and inRTH and not na(ibH) ? ibH : na
+ibShowL = showIB and inRTH and not na(ibL) ? ibL : na
+ibShowM = showIB and inRTH and not na(ibH) ? (ibDone ? ibMid : (ibH + ibL) / 2) : na
+arShowH = showAR and inAsiaFlat and (arDone or inAR) ? arH : na
+arShowL = showAR and inAsiaFlat and (arDone or inAR) ? arL : na
 
-plot(f_brk(pdh), "PDH", cPD, 1, plot.style_linebr)
-plot(f_brk(pdl), "PDL", cPD, 1, plot.style_linebr)
-plot(f_brk(pwH), "PW VAH", cPW, 2, plot.style_linebr)
-plot(f_brk(pwP), "PW POC", cPOC, 2, plot.style_linebr)
-plot(f_brk(pwL), "PW VAL", cPW, 2, plot.style_linebr)
-plot(f_brk(psH), "PS VAH", cPS, 1, plot.style_linebr)
-plot(f_brk(psP), "PS POC", cPOC, 1, plot.style_linebr)
-plot(f_brk(psL), "PS VAL", cPS, 1, plot.style_linebr)
-plot(f_brk(lnH), "London H", cLon, 1, plot.style_linebr)
-plot(f_brk(lnL), "London L", cLon, 1, plot.style_linebr)
-plot(f_brk(ibShowH), "IB High", cIB, 2, plot.style_linebr)
-plot(ibShowM, "IB Mid", cIBM, 1, plot.style_circles)
-plot(f_brk(ibShowL), "IB Low", cIB, 2, plot.style_linebr)
-plot(nyVWd, "NY AVWAP", cNYVW, 2, plot.style_linebr)
-plot(sVWd, "Session VWAP", cSVW, 1, plot.style_linebr)
-plot(wVWd, "Weekly VWAP", cWVW, 1, plot.style_linebr)
-plot(f_brk(arShowH), "Asia range H", cAR, 2, plot.style_linebr)
-plot(f_brk(arShowL), "Asia range L", cAR, 2, plot.style_linebr)
+plot(f_brk(pdh), "PDH", cPD, lwThin, plot.style_linebr, editable=false)
+plot(f_brk(pdl), "PDL", cPD, lwThin, plot.style_linebr, editable=false)
+plot(f_brk(pwH), "PW VAH", cPW, lwThick, plot.style_linebr, editable=false)
+plot(f_brk(pwP), "PW POC", cPOC, lwThick, plot.style_linebr, editable=false)
+plot(f_brk(pwL), "PW VAL", cPW, lwThick, plot.style_linebr, editable=false)
+plot(f_brk(psH), "PS VAH", cPS, lwThin, plot.style_linebr, editable=false)
+plot(f_brk(psP), "PS POC", cPOC, lwThin, plot.style_linebr, editable=false)
+plot(f_brk(psL), "PS VAL", cPS, lwThin, plot.style_linebr, editable=false)
+plot(f_brk(lnH), "London H", cLon, lwThin, plot.style_linebr, editable=false)
+plot(f_brk(lnL), "London L", cLon, lwThin, plot.style_linebr, editable=false)
+plot(f_brk(ibShowH), "IB High", cIB, lwThick, plot.style_linebr, editable=false)
+plot(ibShowM, "IB Mid", cIBM, lwThin, plot.style_circles, editable=false)
+plot(f_brk(ibShowL), "IB Low", cIB, lwThick, plot.style_linebr, editable=false)
+plot(nyVWd, "NY AVWAP", cNYVW, lwThick, plot.style_linebr, editable=false)
+plot(sVWd, "Session VWAP", cSVW, lwThin, plot.style_linebr, editable=false)
+plot(wVWd, "Weekly VWAP", cWVW, lwThin, plot.style_linebr, editable=false)
+plot(f_brk(arShowH), "Asia range H", cAR, lwThick, plot.style_linebr, editable=false)
+plot(f_brk(arShowL), "Asia range L", cAR, lwThick, plot.style_linebr, editable=false)
 
 // Level labels on the last bar.
 var array<label> lvLbl = array.new<label>()
